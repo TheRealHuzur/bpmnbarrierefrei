@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bauantrag: Prozessbeschreibung</title>
+<style>
+:root{color-scheme:light dark}
+body{font:1.125rem/1.6 system-ui,sans-serif;max-width:46rem;margin:0 auto;padding:1rem;overflow-wrap:break-word}
+h1,h2,h3,h4,h5,h6{line-height:1.25}
+h3{margin-top:2.5rem}
+h4,h5,h6{margin-top:1.75rem}
+[id]{scroll-margin-top:1rem}
+:target{outline:.2rem solid currentColor;outline-offset:.4rem}
+a{text-decoration:underline;text-underline-offset:.15em}
+a:focus-visible{outline:.2rem solid currentColor;outline-offset:.15rem}
+li{margin-block:.4rem}
+ol{list-style-position:inside;padding-inline-start:0}
+</style>
+</head>
+<body>
+<main>
+<h1>Bauantrag</h1>
+<h2>Überblick</h2>
+<p>Dieses Dokument beschreibt 2 Prozesse mit zusammen 20 Schritten, davon 10 Aufgaben und 2 Entscheidungen.</p>
+<p>Mögliche Ergebnisse: <a href="#s4">Schritt 4: Verfahren abgeschlossen</a>, <a href="#s10">Schritt 10: Erinnerung versandt</a>, <a href="#s20">Schritt 20: Vorgang abgeschlossen</a>.</p>
+<p>So lesen Sie das Dokument: Jeder Schritt ist eine Überschrift der Ebene 3. Steht bei einem Schritt nichts anderes, geht es mit dem nächsten Schritt weiter. Nach einem Sprung führt die Zurück-Funktion des Browsers wieder an die vorige Stelle.</p>
+<h2>Beteiligte</h2>
+<ul>
+<li>Antragstellende Person: <a href="#s2">Schritt 2: Bauantrag einreichen</a></li>
+<li>Bauamt, Eingangsstelle: <a href="#s6">Schritt 6: Unterlagen auf Vollständigkeit prüfen</a>, <a href="#s7">Schritt 7: Unterlagen vollständig?</a>, <a href="#s8">Schritt 8: Fehlende Unterlagen nachfordern</a>, <a href="#s9">Schritt 9: Erinnerung senden</a>, <a href="#s19">Schritt 19: Bescheid versenden</a></li>
+<li>Bauamt, Sachbearbeitung: <a href="#s12">Schritt 12: Bauordnungsrecht prüfen</a>, <a href="#s13">Schritt 13: Brandschutz prüfen</a>, <a href="#s15">Schritt 15: Genehmigungsfähig?</a>, <a href="#s16">Schritt 16: Genehmigung erstellen</a>, <a href="#s17">Schritt 17: Ablehnung mit Begründung erstellen</a></li>
+<li>Bauamt, Amtsleitung: <a href="#s18">Schritt 18: Bescheid zeichnen</a></li>
+<li>Feuerwehr: externe Stelle, im Modell ohne eigene Schritte</li>
+</ul>
+<h2>Ablauf: Antragstellende Person</h2>
+<h3 id="s1">Schritt 1, Start: Bauvorhaben geplant</h3>
+<h3 id="s2">Schritt 2, Aufgabe: Bauantrag einreichen</h3>
+<p>Zuständig: Antragstellende Person.</p>
+<p>Sendet „Bauantrag“ an <a href="#s5">Schritt 5: Bauantrag eingegangen</a>.</p>
+<h3 id="s3">Schritt 3, Ereignis: Bescheid erhalten</h3>
+<p>Art des Ereignisses: Nachricht.</p>
+<p>Empfängt „Bescheid“ von <a href="#s19">Schritt 19: Bescheid versenden</a>.</p>
+<h3 id="s4">Schritt 4, Ende: Verfahren abgeschlossen</h3>
+<p>Dieser Weg endet hier.</p>
+<h2>Ablauf: Bauamt</h2>
+<h3 id="s5">Schritt 5, Start: Bauantrag eingegangen</h3>
+<p>Art des Ereignisses: Nachricht.</p>
+<p>Empfängt „Bauantrag“ von <a href="#s2">Schritt 2: Bauantrag einreichen</a>.</p>
+<h3 id="s6">Schritt 6, Aufgabe: Unterlagen auf Vollständigkeit prüfen</h3>
+<p>Zuständig: Eingangsstelle.</p>
+<p>Pflichtunterlagen laut Checkliste abgleichen.</p>
+<p>Benötigt: Checkliste Bauantrag.</p>
+<p>Auch erreichbar von: <a href="#s8">Schritt 8: Fehlende Unterlagen nachfordern</a>.</p>
+<h3 id="s7">Schritt 7, Entscheidung: Unterlagen vollständig?</h3>
+<p>Zuständig: Eingangsstelle.</p>
+<p>Hinweis: Die gesetzliche Bearbeitungsfrist läuft ab Vollständigkeit.</p>
+<ul>
+<li>Nein: weiter mit <a href="#s8">Schritt 8: Fehlende Unterlagen nachfordern</a></li>
+<li>Ja: weiter mit <a href="#s11">Schritt 11: 2 Wege laufen gleichzeitig</a></li>
+</ul>
+<h3 id="s8">Schritt 8, Aufgabe: Fehlende Unterlagen nachfordern</h3>
+<p>Zuständig: Eingangsstelle.</p>
+<p>Weiter mit <a href="#s6">Schritt 6: Unterlagen auf Vollständigkeit prüfen</a>.</p>
+<p>Frist „14 Tage ohne Antwort“: Die Aufgabe läuft weiter, zusätzlich weiter mit <a href="#s9">Schritt 9: Erinnerung senden</a>.</p>
+<h3 id="s9">Schritt 9, Aufgabe: Erinnerung senden</h3>
+<p>Zuständig: Eingangsstelle.</p>
+<h3 id="s10">Schritt 10, Ende: Erinnerung versandt</h3>
+<p>Dieser Weg endet hier.</p>
+<h3 id="s11">Schritt 11: 2 Wege laufen gleichzeitig</h3>
+<p>Erreichbar von: <a href="#s7">Schritt 7: Unterlagen vollständig?</a></p>
+<p>Diese Wege laufen gleichzeitig:</p>
+<ul>
+<li><a href="#s12">Schritt 12: Bauordnungsrecht prüfen</a></li>
+<li><a href="#s13">Schritt 13: Brandschutz prüfen</a></li>
+</ul>
+<h3 id="s12">Schritt 12, Aufgabe: Bauordnungsrecht prüfen</h3>
+<p>Zuständig: Sachbearbeitung.</p>
+<p>Weiter mit <a href="#s14">Schritt 14: Warten auf alle gleichzeitigen Wege</a>.</p>
+<h3 id="s13">Schritt 13, Aufgabe: Brandschutz prüfen</h3>
+<p>Zuständig: Sachbearbeitung.</p>
+<p>Empfängt „Stellungnahme Brandschutz“ von Feuerwehr.</p>
+<p>Erreichbar von: <a href="#s11">Schritt 11: 2 Wege laufen gleichzeitig</a>.</p>
+<h3 id="s14">Schritt 14: Warten auf alle gleichzeitigen Wege</h3>
+<p>Weiter erst, wenn diese Schritte abgeschlossen sind: <a href="#s12">Schritt 12: Bauordnungsrecht prüfen</a>, <a href="#s13">Schritt 13: Brandschutz prüfen</a>.</p>
+<h3 id="s15">Schritt 15, Entscheidung: Genehmigungsfähig?</h3>
+<p>Zuständig: Sachbearbeitung.</p>
+<ul>
+<li>Ja: weiter mit <a href="#s16">Schritt 16: Genehmigung erstellen</a></li>
+<li>Nein: weiter mit <a href="#s17">Schritt 17: Ablehnung mit Begründung erstellen</a></li>
+</ul>
+<h3 id="s16">Schritt 16, Aufgabe: Genehmigung erstellen</h3>
+<p>Zuständig: Sachbearbeitung.</p>
+<p>Weiter mit <a href="#s18">Schritt 18: Bescheid zeichnen</a>.</p>
+<h3 id="s17">Schritt 17, Aufgabe: Ablehnung mit Begründung erstellen</h3>
+<p>Zuständig: Sachbearbeitung.</p>
+<p>Erreichbar von: <a href="#s15">Schritt 15: Genehmigungsfähig?</a></p>
+<h3 id="s18">Schritt 18, Aufgabe: Bescheid zeichnen</h3>
+<p>Zuständig: Amtsleitung.</p>
+<p>Erzeugt: Bescheid.</p>
+<p>Auch erreichbar von: <a href="#s16">Schritt 16: Genehmigung erstellen</a>.</p>
+<h3 id="s19">Schritt 19, Aufgabe: Bescheid versenden</h3>
+<p>Zuständig: Eingangsstelle.</p>
+<p>Sendet „Bescheid“ an <a href="#s3">Schritt 3: Bescheid erhalten</a>.</p>
+<h3 id="s20">Schritt 20, Ende: Vorgang abgeschlossen</h3>
+<p>Dieser Weg endet hier.</p>
+</main>
+</body>
+</html>

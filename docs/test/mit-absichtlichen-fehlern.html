@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modell mit absichtlichen Fehlern: Prozessbeschreibung</title>
+<style>
+:root{color-scheme:light dark}
+body{font:1.125rem/1.6 system-ui,sans-serif;max-width:46rem;margin:0 auto;padding:1rem;overflow-wrap:break-word}
+h1,h2,h3,h4,h5,h6{line-height:1.25}
+h3{margin-top:2.5rem}
+h4,h5,h6{margin-top:1.75rem}
+[id]{scroll-margin-top:1rem}
+:target{outline:.2rem solid currentColor;outline-offset:.4rem}
+a{text-decoration:underline;text-underline-offset:.15em}
+a:focus-visible{outline:.2rem solid currentColor;outline-offset:.15rem}
+li{margin-block:.4rem}
+ol{list-style-position:inside;padding-inline-start:0}
+</style>
+</head>
+<body>
+<main>
+<h1>Modell mit absichtlichen Fehlern</h1>
+<h2>Überblick</h2>
+<p>Dieser Prozess hat 10 Schritte, davon 6 Aufgaben und 2 Entscheidungen.</p>
+<p>Mögliche Ergebnisse: <a href="#s9">Schritt 9: ohne Namen im Modell</a>.</p>
+<p>So lesen Sie das Dokument: Jeder Schritt ist eine Überschrift der Ebene 3. Steht bei einem Schritt nichts anderes, geht es mit dem nächsten Schritt weiter. Nach einem Sprung führt die Zurück-Funktion des Browsers wieder an die vorige Stelle.</p>
+<h2>Ablauf</h2>
+<h3 id="s1">Schritt 1, Start: ohne Namen im Modell</h3>
+<h3 id="s2">Schritt 2, Aufgabe: ohne Namen im Modell</h3>
+<h3 id="s3">Schritt 3, Entscheidung: ohne Namen im Modell</h3>
+<ul>
+<li>Ohne Beschriftung: weiter mit <a href="#s4">Schritt 4: Aufgabe ohne Fortsetzung</a></li>
+<li>Ohne Beschriftung: weiter mit <a href="#s5">Schritt 5: Teilprozess mit Inhalt</a></li>
+</ul>
+<h3 id="s4">Schritt 4, Aufgabe: Aufgabe ohne Fortsetzung</h3>
+<p>Danach ist im Modell kein weiterer Schritt vorgesehen.</p>
+<h3 id="s5">Schritt 5, Teilprozess: Teilprozess mit Inhalt</h3>
+<p>Dieser Teilprozess enthält 2 weitere Elemente, die in diesem Dokument noch nicht beschrieben sind.</p>
+<p>Erreichbar von: <a href="#s3">Schritt 3: ohne Namen im Modell</a>.</p>
+<h3 id="s6">Schritt 6, Verzweigung: Welche Prüfungen?</h3>
+<p>Mögliche Wege:</p>
+<ul>
+<li>A: weiter mit <a href="#s7">Schritt 7: Prüfung A</a></li>
+<li>B: weiter mit <a href="#s8">Schritt 8: Prüfung B</a></li>
+</ul>
+<h3 id="s7">Schritt 7, Aufgabe: Prüfung A</h3>
+<p>Weiter mit <a href="#s9">Schritt 9: ohne Namen im Modell</a>.</p>
+<h3 id="s8">Schritt 8, Aufgabe: Prüfung B</h3>
+<p>Erreichbar von: <a href="#s6">Schritt 6: Welche Prüfungen?</a></p>
+<h3 id="s9">Schritt 9, Ende: ohne Namen im Modell</h3>
+<p>Auch erreichbar von: <a href="#s7">Schritt 7: Prüfung A</a>.</p>
+<p>Dieser Weg endet hier.</p>
+<h3 id="s10">Schritt 10, Aufgabe: Aufgabe ohne Verbindung</h3>
+<p>Zu diesem Schritt führt im Modell kein Weg vom Start aus.</p>
+<p>Danach ist im Modell kein weiterer Schritt vorgesehen.</p>
+</main>
+</body>
+</html>

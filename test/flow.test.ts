@@ -289,6 +289,28 @@ describe('Rollen und Pools', () => {
   });
 });
 
+describe('Namen bei mehreren Pools', () => {
+  const twoPools = `<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="D" targetNamespace="urn:t">
+    <bpmn:collaboration id="C">
+      <bpmn:participant id="P1" name="Bauamt" processRef="Process_1" />
+      <bpmn:participant id="P2" name="Kunde" processRef="Process_2" />
+    </bpmn:collaboration>
+    <bpmn:process id="Process_1" name="Process_1">
+      <bpmn:laneSet id="LS"><bpmn:lane id="L" name="Eingangsstelle"><bpmn:flowNodeRef>A</bpmn:flowNodeRef></bpmn:lane></bpmn:laneSet>
+      <bpmn:task id="A" name="A" />
+    </bpmn:process>
+    <bpmn:process id="Process_2" name="Process_2"><bpmn:task id="B" name="B" /></bpmn:process>
+  </bpmn:definitions>`;
+
+  it('nennt den Pool statt eines technischen Prozessnamens', async () => {
+    const { document, html } = await convert(twoPools);
+    expect(document.sections.map((section) => section.heading)).toEqual(['Ablauf: Bauamt', 'Ablauf: Kunde']);
+    expect(html).toContain('Bauamt, Eingangsstelle: ');
+    expect(html).toContain('<li>Kunde: ');
+    expect(html).not.toContain('Process_');
+  });
+});
+
 describe('Anmerkungen und Daten', () => {
   it('ordnet Anmerkungen unabhängig von der Pfeilrichtung zu', async () => {
     for (const association of ['sourceRef="A" targetRef="N"', 'sourceRef="N" targetRef="A"']) {

@@ -47,6 +47,7 @@ export interface GraphNode {
 export interface ProcessGraph {
   process: BpmnElement;
   title?: string;
+  poolName?: string;
   nodes: GraphNode[];
   /** Rollen in Modellreihenfolge, auch solche ohne eigene Schritte. */
   roles: string[];
@@ -283,7 +284,8 @@ export function analyzeProcess(process: BpmnElement, context: AnalyzeContext): P
 
   for (const element of elements) reportElement(element, nodeOf.get(element), isAttached(element), outgoing.get(element)!, addFinding);
 
-  return { process, title: clean(process.name) || poolName, nodes: ordered, roles, nodeOf };
+  const title = clean(process.name) || poolName;
+  return { process, ...(title ? { title } : {}), ...(poolName ? { poolName } : {}), nodes: ordered, roles, nodeOf };
 }
 
 function reportElement(

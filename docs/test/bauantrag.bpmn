@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Defs" name="Bauantrag" targetNamespace="urn:bpmnbarrierefrei:test">
+  <bpmn:collaboration id="Collab">
+    <bpmn:participant id="P_Antrag" name="Antragstellende Person" processRef="Proc_Antrag" />
+    <bpmn:participant id="P_Amt" name="Bauamt" processRef="Proc_Amt" />
+    <bpmn:participant id="P_Feuer" name="Feuerwehr" />
+    <bpmn:messageFlow id="MF_Antrag" name="Bauantrag" sourceRef="T_Einreichen" targetRef="S_Eingang" />
+    <bpmn:messageFlow id="MF_Stellung" name="Stellungnahme Brandschutz" sourceRef="P_Feuer" targetRef="T_Brand" />
+    <bpmn:messageFlow id="MF_Bescheid" name="Bescheid" sourceRef="T_Versenden" targetRef="C_Bescheid" />
+  </bpmn:collaboration>
+
+  <bpmn:process id="Proc_Antrag" name="Antrag stellen">
+    <bpmn:startEvent id="S_Plan" name="Bauvorhaben geplant" />
+    <bpmn:userTask id="T_Einreichen" name="Bauantrag einreichen" />
+    <bpmn:intermediateCatchEvent id="C_Bescheid" name="Bescheid erhalten">
+      <bpmn:messageEventDefinition id="MD_Bescheid" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:endEvent id="E_Antrag" name="Verfahren abgeschlossen" />
+    <bpmn:sequenceFlow id="a1" sourceRef="S_Plan" targetRef="T_Einreichen" />
+    <bpmn:sequenceFlow id="a2" sourceRef="T_Einreichen" targetRef="C_Bescheid" />
+    <bpmn:sequenceFlow id="a3" sourceRef="C_Bescheid" targetRef="E_Antrag" />
+  </bpmn:process>
+
+  <bpmn:process id="Proc_Amt" name="Bauantrag bearbeiten">
+    <bpmn:laneSet id="LS_Amt">
+      <bpmn:lane id="L_Eingang" name="Eingangsstelle">
+        <bpmn:flowNodeRef>S_Eingang</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>M_Pruefen</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_Vollstaendig</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_Vollstaendig</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_Nachfordern</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>B_Erinnerung</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_Erinnern</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E_Erinnert</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_Versenden</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E_Amt</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="L_Sach" name="Sachbearbeitung">
+        <bpmn:flowNodeRef>PS</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_Bauordnung</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_Brand</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>PJ</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_Genehmigung</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_Genehmigung</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_Ablehnung</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>M_Bescheid</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="L_Leitung" name="Amtsleitung">
+        <bpmn:flowNodeRef>T_Zeichnen</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+
+    <bpmn:startEvent id="S_Eingang" name="Bauantrag eingegangen">
+      <bpmn:messageEventDefinition id="MD_Eingang" />
+    </bpmn:startEvent>
+    <bpmn:exclusiveGateway id="M_Pruefen" />
+    <bpmn:userTask id="T_Vollstaendig" name="Unterlagen auf Vollständigkeit prüfen">
+      <bpmn:documentation>Pflichtunterlagen laut Checkliste abgleichen.</bpmn:documentation>
+      <bpmn:dataInputAssociation id="DI_Check"><bpmn:sourceRef>DO_Check</bpmn:sourceRef></bpmn:dataInputAssociation>
+    </bpmn:userTask>
+    <bpmn:dataObjectReference id="DO_Check" name="Checkliste Bauantrag" dataObjectRef="DO1" />
+    <bpmn:dataObject id="DO1" />
+    <bpmn:exclusiveGateway id="G_Vollstaendig" name="Unterlagen vollständig?" default="f_voll" />
+    <bpmn:userTask id="T_Nachfordern" name="Fehlende Unterlagen nachfordern" />
+    <bpmn:boundaryEvent id="B_Erinnerung" name="14 Tage ohne Antwort" attachedToRef="T_Nachfordern" cancelActivity="false">
+      <bpmn:timerEventDefinition id="TD_Erinnerung" />
+    </bpmn:boundaryEvent>
+    <bpmn:sendTask id="T_Erinnern" name="Erinnerung senden" />
+    <bpmn:endEvent id="E_Erinnert" name="Erinnerung versandt" />
+    <bpmn:parallelGateway id="PS" />
+    <bpmn:userTask id="T_Bauordnung" name="Bauordnungsrecht prüfen" />
+    <bpmn:userTask id="T_Brand" name="Brandschutz prüfen" />
+    <bpmn:parallelGateway id="PJ" />
+    <bpmn:exclusiveGateway id="G_Genehmigung" name="Genehmigungsfähig?" />
+    <bpmn:userTask id="T_Genehmigung" name="Genehmigung erstellen" />
+    <bpmn:userTask id="T_Ablehnung" name="Ablehnung mit Begründung erstellen" />
+    <bpmn:exclusiveGateway id="M_Bescheid" />
+    <bpmn:userTask id="T_Zeichnen" name="Bescheid zeichnen">
+      <bpmn:dataOutputAssociation id="DO_Bes"><bpmn:targetRef>DO_Bescheid</bpmn:targetRef></bpmn:dataOutputAssociation>
+    </bpmn:userTask>
+    <bpmn:dataObjectReference id="DO_Bescheid" name="Bescheid" dataObjectRef="DO2" />
+    <bpmn:dataObject id="DO2" />
+    <bpmn:sendTask id="T_Versenden" name="Bescheid versenden" />
+    <bpmn:endEvent id="E_Amt" name="Vorgang abgeschlossen" />
+
+    <bpmn:textAnnotation id="N_Frist"><bpmn:text>Die gesetzliche Bearbeitungsfrist läuft ab Vollständigkeit.</bpmn:text></bpmn:textAnnotation>
+    <bpmn:association id="As_Frist" sourceRef="N_Frist" targetRef="G_Vollstaendig" />
+
+    <bpmn:sequenceFlow id="f1" sourceRef="S_Eingang" targetRef="M_Pruefen" />
+    <bpmn:sequenceFlow id="f2" sourceRef="M_Pruefen" targetRef="T_Vollstaendig" />
+    <bpmn:sequenceFlow id="f3" sourceRef="T_Vollstaendig" targetRef="G_Vollstaendig" />
+    <bpmn:sequenceFlow id="f_nein" name="Nein" sourceRef="G_Vollstaendig" targetRef="T_Nachfordern" />
+    <bpmn:sequenceFlow id="f_voll" name="Ja" sourceRef="G_Vollstaendig" targetRef="PS" />
+    <bpmn:sequenceFlow id="f4" sourceRef="T_Nachfordern" targetRef="M_Pruefen" />
+    <bpmn:sequenceFlow id="f5" sourceRef="B_Erinnerung" targetRef="T_Erinnern" />
+    <bpmn:sequenceFlow id="f6" sourceRef="T_Erinnern" targetRef="E_Erinnert" />
+    <bpmn:sequenceFlow id="f7" sourceRef="PS" targetRef="T_Bauordnung" />
+    <bpmn:sequenceFlow id="f8" sourceRef="PS" targetRef="T_Brand" />
+    <bpmn:sequenceFlow id="f9" sourceRef="T_Bauordnung" targetRef="PJ" />
+    <bpmn:sequenceFlow id="f10" sourceRef="T_Brand" targetRef="PJ" />
+    <bpmn:sequenceFlow id="f11" sourceRef="PJ" targetRef="G_Genehmigung" />
+    <bpmn:sequenceFlow id="f_ja" name="Ja" sourceRef="G_Genehmigung" targetRef="T_Genehmigung" />
+    <bpmn:sequenceFlow id="f_ab" name="Nein" sourceRef="G_Genehmigung" targetRef="T_Ablehnung" />
+    <bpmn:sequenceFlow id="f12" sourceRef="T_Genehmigung" targetRef="M_Bescheid" />
+    <bpmn:sequenceFlow id="f13" sourceRef="T_Ablehnung" targetRef="M_Bescheid" />
+    <bpmn:sequenceFlow id="f14" sourceRef="M_Bescheid" targetRef="T_Zeichnen" />
+    <bpmn:sequenceFlow id="f15" sourceRef="T_Zeichnen" targetRef="T_Versenden" />
+    <bpmn:sequenceFlow id="f16" sourceRef="T_Versenden" targetRef="E_Amt" />
+  </bpmn:process>
+</bpmn:definitions>

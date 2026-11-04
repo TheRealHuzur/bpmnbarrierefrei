@@ -1,6 +1,6 @@
 # Konzept und Plan: BPMN barrierefrei
 
-Stand: 4. November 2026. Status: Phase 1 umgesetzt, Hörprobe läuft.
+Stand: 4. November 2026. Status: Phase 1 umgesetzt, Fassung A und B warten auf den Vergleich durch Betroffene.
 
 ## Ziel
 
@@ -83,7 +83,24 @@ Das vollständige Beispiel liegt unter [beispiel/urlaubsantrag.html](beispiel/ur
 - **Schleifen und mehrere Zugänge** werden über „Erreichbar von“ mit Link sichtbar.
 - **Grenzereignisse** stehen beim Schritt, an dem sie hängen, zum Beispiel als Frist.
 - **Linktexte tragen immer Kontext**, weil Screenreader Links auch als reine Liste anbieten.
-- **Keine tiefe Verschachtelung.** Der Ablauf bleibt eine flache Liste mit Sprüngen. Das funktioniert auch bei unstrukturierten Modellen, bei denen eine Verschachtelung gar nicht möglich wäre.
+
+### Zwei Fassungen im Vergleich
+
+Der erste eigene Test zeigte: Die Umwandlung funktioniert, aber die flache Schrittliste wird bei komplexeren Prozessen schwer zu verfolgen, und NVDA kündigt jeden Sprung innerhalb der Seite an. Das Bauantrag-Dokument hatte 36 Links bei 20 Schritten. Deshalb gibt es jetzt zwei Fassungen, zwischen denen Betroffene entscheiden sollen. Die Entscheidung ist noch offen.
+
+**Fassung A** ist die flache Liste nach den Regeln oben. Sie ist einfach und bleibt immer gleich aufgebaut, verlangt aber, den Prozess im Kopf zusammenzusetzen.
+
+**Fassung B** gliedert den Ablauf in Blöcke:
+
+- **Hauptweg zuerst:** Eine kurze Liste nennt die oberste Ebene, wenn der Prozess Verzweigungen hat.
+- **Zweige am Ort:** Jede Entscheidung ist eine Überschrift, ihre Fälle sind Überschriften eine Ebene tiefer, die Schritte stehen direkt darunter.
+- **Flach, wo es geht:** Läuft nach einer Entscheidung nichts zusammen, bleibt der größte Zweig auf der Ebene der Entscheidung. Lange Prozesse werden so nicht immer tiefer eingerückt.
+- **Links nur für echte Sprünge:** Das sind vor allem Rücksprünge. Verweise auf Nachrichten oder wartende Wege stehen als Text da.
+- **Weniger Ansagen:** Die Zuständigkeit erscheint beim Wechsel und nach Überschriften.
+
+Technisch beruht Fassung B auf dem Dominatorbaum des Prozessgraphen: Ein Schritt wird dort eingeordnet, wo alle Wege zu ihm vorbeiführen. Was nicht in Blöcke passt, wird zum Sprung. Das hält das Dokument auch bei unstrukturierten Modellen vollständig, geprüft mit zufällig erzeugten Graphen. HTML kennt nur sechs Überschriftenebenen, tiefere Zweige werden zu hervorgehobenen Absätzen.
+
+Die Grenzen: Der Hauptweg ist eine Schätzung, das Programm nimmt den Zweig mit den meisten Schritten. Und ein sehr großer Prozess bleibt auch so anstrengend zu hören.
 
 ### BPMN-Abdeckung
 
@@ -206,14 +223,14 @@ Jede Phase endet mit etwas Nutzbarem.
 
 ### Phase 0: Hörprobe (läuft)
 
-- Beispiel mit NVDA anhören, Dokumentform bestätigen oder ändern.
+- Fassung A und B mit ein bis zwei Betroffenen vergleichen, siehe [Testanleitung](test/TESTANLEITUNG.md). Der eigene Test reicht dafür nicht aus.
 - Echte Modelle sammeln: mindestens je eines aus bpmnDESK, Picture und Adonis.
-- **Fertig, wenn:** Die Dokumentform ist entschieden und die Modelle liegen vor.
+- **Fertig, wenn:** Die Dokumentform ist entschieden, die andere Fassung entfällt, und die Modelle liegen vor.
 
 ### Phase 1: Kern (umgesetzt)
 
 - Projektgerüst: TypeScript und Vitest, Vite kommt mit dem Frontend in Phase 3.
-- Einlesen, Analysieren, Linearisieren, HTML-Ausgabe, Kommandozeile: `npm run convert -- modell.bpmn`.
+- Einlesen, Analysieren, Linearisieren, HTML-Ausgabe, Kommandozeile: `npm run convert -- modell.bpmn [--fassung b]`.
 - Abdeckung gemäß Tabelle, Sicherheitstests.
 - **Fertig, wenn:** Die Kommandozeile macht aus den Beispielmodellen korrektes HTML und alle Tests laufen.
 - **Stand:** Für das Beispielmodell und die nachgestellten Exporte erfüllt. Der Lauf mit echten Exporten und ein Durchgang mit echtem Screenreader stehen noch aus. Das Beispielmodell ergibt 0 Verstöße in axe-core 4.14, wobei der Farbkontrast von axe nicht auswertbar war, weil das Dokument bewusst keine Farben festlegt. Bei 320 Pixeln Breite gibt es kein horizontales Scrollen.

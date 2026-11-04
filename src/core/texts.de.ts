@@ -91,6 +91,38 @@ export const de = {
         : 'Dieser Schritt ruft einen anderen Prozess auf. Dessen Inhalt ist nicht Teil dieses Dokuments.',
   },
 
+  formB: {
+    mainPath: 'Hauptweg',
+    mainPathNamed: (name: string) => `Hauptweg: ${name}`,
+    mainPathIntro: 'Das sind die wichtigsten Schritte ohne Sonderfälle. Alle Einzelheiten stehen im Ablauf.',
+    readingHelp:
+      'So lesen Sie das Dokument: Der Hauptweg gibt einen schnellen Überblick. Im Ablauf ist jede Entscheidung eine Überschrift, und jeder ihrer Fälle ist eine Überschrift eine Ebene tiefer. Die Schritte haben durchgehende Nummern. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion des Browsers wieder an die vorige Stelle.',
+    back: 'Zurück zu ',
+    backAfterStep: 'Danach zurück zu ',
+    caseLabeled: (label: string) => `Falls ${label}`,
+    wayLabeled: (label: string) => `Weg: ${label}`,
+    way: (number: number) => `Weg ${number}`,
+    unlabeledCase: 'Fall ohne Beschriftung',
+    noOwnStep: 'In diesem Fall gibt es keinen eigenen Schritt.',
+    branchIntro: 'Mehrere dieser Wege können zutreffen.',
+    continuesHere: 'Es geht direkt hier weiter.',
+    parallelIntro: 'Diese Wege laufen gleichzeitig.',
+    afterParallel: (number: number) => `Schritt ${number}: Warten, bis alle gleichzeitigen Wege fertig sind`,
+    mainParallel: (labels: string[]) => `Gleichzeitig: ${labels.join(' und ')}`,
+    sideCase: (kind: string, name: string) => (name ? `Sonderfall ${kind}: ${name}` : `Sonderfall ${kind}`),
+    interrupting: 'Die Aufgabe wird dabei abgebrochen.',
+    nonInterrupting: 'Die Aufgabe läuft weiter, zusätzlich passiert Folgendes:',
+    nonInterruptingNoExit: 'Die Aufgabe läuft weiter.',
+    later: (number: number) => `Weiter ab Schritt ${number}`,
+    comesFrom: 'Hierher führen: ',
+    unreachable: 'Schritte ohne Weg vom Start',
+    sections: {
+      together: 'Danach gemeinsam weiter',
+      regular: 'Regulär geht es so weiter',
+      'other-start': 'Weiterer Start',
+    },
+  },
+
   overview: {
     single: (steps: number, tasks: number, decisions: number) =>
       `Dieser Prozess hat ${plural(steps, 'Schritt', 'Schritte')}, davon ${plural(tasks, 'Aufgabe', 'Aufgaben')} und ${plural(decisions, 'Entscheidung', 'Entscheidungen')}.`,

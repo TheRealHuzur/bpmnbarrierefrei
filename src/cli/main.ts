@@ -2,16 +2,18 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { ConvertError, convertBpmn, renderHtml, type Finding } from '../core/index.ts';
 
-const USAGE = `Aufruf: npm run convert -- <modell.bpmn> [-o <ausgabe.html>]
+const USAGE = `Aufruf: npm run convert -- <modell.bpmn> [-o <ausgabe.html>] [--fassung a|b]
 
 Wandelt ein BPMN-2.0-Modell in ein barrierefreies HTML-Dokument um.
-Ohne -o entsteht die HTML-Datei neben dem Modell.`;
+Ohne -o entsteht die HTML-Datei neben dem Modell.
+Fassung a ist eine flache Schrittliste, Fassung b stellt Zweige unter ihre Entscheidung.`;
 
 const SEVERITY_LABEL: Record<Finding['severity'], string> = { warning: 'Warnung', info: 'Hinweis' };
 
 function main(args: string[]): number {
   const positional: string[] = [];
   let output: string | undefined;
+  let form: string | undefined = 'a';
   for (let index = 0; index < args.length; index++) {
     const arg = args[index]!;
     if (arg === '-h' || arg === '--help') {
@@ -19,10 +21,11 @@ function main(args: string[]): number {
       return 0;
     }
     if (arg === '-o' || arg === '--output') output = args[++index];
+    else if (arg === '--fassung') form = args[++index];
     else positional.push(arg);
   }
   const input = positional[0];
-  if (!input || positional.length > 1 || (args.includes('-o') && !output)) {
+  if (!input || positional.length > 1 || (args.includes('-o') && !output) || (form !== 'a' && form !== 'b')) {
     console.error(USAGE);
     return 2;
   }
@@ -36,11 +39,10 @@ function main(args: string[]): number {
     return 1;
   }
 
-  convertBpmn(bytes, { fallbackTitle: basename(input, extname(input)) }).then(
+  convertBpmn(bytes, { fallbackTitle: basename(input, extname(input)), form }).then(
     ({ document, findings }) => {
       writeFileSync(output, renderHtml(document));
-      const steps = document.sections.reduce((sum, section) => sum + section.steps.length, 0);
-      console.log(`${output} geschrieben (${steps} Schritte).`);
+      console.log(`${output} geschrieben.`);
       if (findings.length) {
         console.error(`\nPrüfbericht (${findings.length}):`);
         for (const finding of findings) console.error(`- ${SEVERITY_LABEL[finding.severity]}: ${finding.message}`);

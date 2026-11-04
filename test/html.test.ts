@@ -47,6 +47,46 @@ describe('Beispielmodell', () => {
   });
 });
 
+describe('Testpaket', () => {
+  const testModel = (name: string) => readFileSync(new URL(`../docs/test/${name}.bpmn`, import.meta.url));
+
+  it.each(['bauantrag', 'mit-absichtlichen-fehlern'])('%s: Links und Überschriften sind gültig', async (name) => {
+    const { html } = await convert(testModel(name));
+    for (const match of html.matchAll(/href="#(s\d+)"/g)) expect(html).toContain(`id="${match[1]}"`);
+    const levels = [...html.matchAll(/<h([1-6])/g)].map((match) => Number(match[1]));
+    expect(levels[0]).toBe(1);
+    expect(levels.filter((level) => level === 1)).toHaveLength(1);
+    levels.forEach((level, index) => {
+      if (index > 0) expect(level - levels[index - 1]!).toBeLessThanOrEqual(1);
+    });
+  });
+
+  it('Bauantrag: Dokument ist aktuell und ohne Befunde', async () => {
+    const { html, findings } = await convert(testModel('bauantrag'));
+    expect(findings).toEqual([]);
+    await expect(html).toMatchFileSnapshot('../docs/test/bauantrag.html');
+  });
+
+  it('Bauantrag: Die Lösungen der Testanleitung stimmen', async () => {
+    const { stepText, headings } = await convert(testModel('bauantrag'));
+    expect(headings[5]).toContain('Unterlagen auf Vollständigkeit prüfen');
+    expect(stepText(6)).toContain('Zuständig: Eingangsstelle.');
+    expect(stepText(7)).toContain('Nein: weiter mit Schritt 8: Fehlende Unterlagen nachfordern');
+    expect(stepText(8)).toContain('Weiter mit Schritt 6');
+    expect(stepText(8)).toContain('Die Aufgabe läuft weiter, zusätzlich weiter mit Schritt 9: Erinnerung senden');
+    expect(stepText(14)).toContain('Schritt 12: Bauordnungsrecht prüfen, Schritt 13: Brandschutz prüfen');
+    expect(stepText(18)).toContain('Zuständig: Amtsleitung.');
+    expect(stepText(13)).toContain('von Feuerwehr');
+    expect(stepText(19)).toContain('Sendet „Bescheid“ an Schritt 3');
+  });
+
+  it('Modell mit Fehlern: Dokument ist aktuell und alle Fehlerarten werden gemeldet', async () => {
+    const { html, codes } = await convert(testModel('mit-absichtlichen-fehlern'));
+    await expect(html).toMatchFileSnapshot('../docs/test/mit-absichtlichen-fehlern.html');
+    expect(new Set(codes)).toEqual(new Set(['missing-name', 'unlabeled-exit', 'dead-end', 'unsupported', 'unreachable']));
+  });
+});
+
 describe('Lesbarkeit bei Sehbehinderung', () => {
   it('legt weder Farben noch feste Pixelmaße fest', async () => {
     const { html } = await convert(sample());
@@ -63,7 +103,7 @@ describe('Lesbarkeit bei Sehbehinderung', () => {
 
   it('markiert das Sprungziel sichtbar und unterstreicht Links', async () => {
     const { html } = await convert(sample());
-    expect(html).toContain('h3:target{outline');
+    expect(html).toContain(':target{outline');
     expect(html).toContain('a{text-decoration:underline');
   });
 

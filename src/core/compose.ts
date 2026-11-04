@@ -6,12 +6,15 @@ import { de } from './texts.de.ts';
 
 const list = (value: unknown): BpmnElement[] => (Array.isArray(value) ? value : []);
 
-const ref = (node: GraphNode): StepRef => ({ step: node.number, text: de.steps.ref(node.number, node.label) });
+export const ref = (node: GraphNode): StepRef => ({ step: node.number, text: de.steps.ref(node.number, node.label) });
 
-const inlineText = (inline: Inline): string => (typeof inline === 'string' ? inline : inline.text);
+export const inlineText = (inline: Inline): string => {
+  if (typeof inline === 'string') return inline;
+  return 'strong' in inline ? inline.strong : inline.text;
+};
 
 /** Schließt einen Satz ab, ohne „genehmigt?.“ zu erzeugen. */
-function sentence(...content: Inline[]): Block {
+export function sentence(...content: Inline[]): Block {
   const last = content.at(-1);
   const needsStop = last !== undefined && !/[.?!:]$/.test(inlineText(last).trim());
   return { type: 'paragraph', content: needsStop ? [...content, '.'] : content };
@@ -21,13 +24,13 @@ function joined(nodes: GraphNode[]): Inline[] {
   return nodes.flatMap((node, index) => (index === 0 ? [ref(node)] : [', ', ref(node)]));
 }
 
-function documentationOf(element: BpmnElement): string[] {
+export function documentationOf(element: BpmnElement): string[] {
   return list(element.documentation)
     .map((doc) => plainText(doc.text, doc.textFormat))
     .filter(Boolean);
 }
 
-function eventKindOf(element: BpmnElement): string | undefined {
+export function eventKindOf(element: BpmnElement): string | undefined {
   const [definition] = list(element.eventDefinitions);
   return definition ? (de.eventKinds[definition.$type] ?? de.genericEventKind) : undefined;
 }
@@ -96,7 +99,7 @@ function entryBlocks(node: GraphNode, previous: GraphNode | undefined): Block[] 
   return [sentence(previousLeadsHere ? de.steps.alsoFrom : de.steps.from, ...joined(others))];
 }
 
-function detailBlocks(node: GraphNode): Block[] {
+export function detailBlocks(node: GraphNode): Block[] {
   const { element } = node;
   const blocks: Block[] = [];
   if (element.$instanceOf('bpmn:Event') && node.kind !== 'other') {
@@ -141,6 +144,9 @@ function composeStep(
   };
 }
 
+/** Bei mehreren Prozessen zählt der Pool, denn Prozessnamen sind oft technisch („Process_1“). */
+export const sectionName = (graph: ProcessGraph): string | undefined => graph.poolName ?? graph.title;
+
 export interface ComposeInput {
   title: string;
   graphs: ProcessGraph[];
@@ -173,7 +179,8 @@ export function composeDocument(input: ComposeInput): ProcessDocument {
   for (const graph of graphs) {
     for (const role of graph.roles) {
       const own = graph.nodes.filter((node) => node.role === role && hasRole(node.kind));
-      const name = graphs.length > 1 && graph.title && graph.title !== role ? `${graph.title}, ${role}` : role;
+      const owner = sectionName(graph);
+      const name = graphs.length > 1 && owner && owner !== role ? `${owner}, ${role}` : role;
       roles.push(own.length ? [de.overview.roleSteps(name), ...joined(own)] : [de.overview.roleNoSteps(name)]);
     }
   }
@@ -187,8 +194,9 @@ export function composeDocument(input: ComposeInput): ProcessDocument {
     if (graphs.length > 1) {
       for (const doc of documentationOf(graph.process)) blocks.push({ type: 'paragraph', content: [doc] });
     }
+    const owner = sectionName(graph);
     return {
-      heading: graphs.length > 1 && graph.title ? de.headings.flowNamed(graph.title) : de.headings.flow,
+      heading: graphs.length > 1 && owner ? de.headings.flowNamed(owner) : de.headings.flow,
       blocks,
       steps: graph.nodes.map((node, index) =>
         composeStep(node, graph.nodes[index - 1], graph.nodes[index + 1], attachments.get(node)),

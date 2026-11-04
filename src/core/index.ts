@@ -1,6 +1,8 @@
 import { analyzeProcess, readPositions, type GraphNode, type ProcessGraph } from './analyze.ts';
 import { composeDocument, type StepAttachments } from './compose.ts';
+import { composeDocumentB } from './compose-b.ts';
 import type { ProcessDocument } from './document.ts';
+import { planProcess, type ProcessPlan } from './structure.ts';
 import { ConvertError, type Finding } from './findings.ts';
 import { parseBpmn, type BpmnElement } from './parse.ts';
 import { clean, plainText } from './text.ts';
@@ -13,9 +15,13 @@ export { renderHtml } from './render-html.ts';
 
 export const MAX_FLOW_NODES = 5000;
 
+/** A: flache Schrittliste mit Links. B: Zweige unter ihrer Entscheidung, Links nur für echte Sprünge. */
+export type DocumentForm = 'a' | 'b';
+
 export interface ConvertOptions {
   /** Titel, falls das Modell selbst keinen Namen nennt, etwa der Dateiname. */
   fallbackTitle?: string;
+  form?: DocumentForm;
 }
 
 export interface ConvertResult {
@@ -68,8 +74,18 @@ export async function convertBpmn(input: string | Uint8Array, options: ConvertOp
     return analyzeProcess(process, { positions, addFinding, ...(poolName ? { poolName } : {}) });
   });
 
-  let number = 0;
-  for (const graph of graphs) for (const node of graph.nodes) node.number = ++number;
+  const plans = new Map<ProcessGraph, ProcessPlan>();
+  if (options.form === 'b') {
+    let next = 1;
+    for (const graph of graphs) {
+      const { plan, nextNumber } = planProcess(graph, next);
+      plans.set(graph, plan);
+      next = nextNumber;
+    }
+  } else {
+    let number = 0;
+    for (const graph of graphs) for (const node of graph.nodes) node.number = ++number;
+  }
 
   const nodeOf = new Map<BpmnElement, GraphNode>(graphs.flatMap((graph) => [...graph.nodeOf]));
   // Grenzereignisse zählen als Teil ihres Schritts.
@@ -158,8 +174,9 @@ export async function convertBpmn(input: string | Uint8Array, options: ConvertOp
     clean(options.fallbackTitle) ||
     de.untitled;
 
+  const composeInput = { title, graphs, attachments, generalNotes, externals, freeMessages };
   return {
-    document: composeDocument({ title, graphs, attachments, generalNotes, externals, freeMessages }),
+    document: options.form === 'b' ? composeDocumentB(composeInput, plans) : composeDocument(composeInput),
     findings,
   };
 }

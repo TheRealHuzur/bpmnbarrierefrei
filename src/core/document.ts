@@ -4,11 +4,20 @@ export interface StepRef {
   text: string;
 }
 
-export type Inline = string | StepRef;
+export type Inline = string | StepRef | { strong: string };
+
+export interface NumberedItem {
+  number: number;
+  /** Ziel für Sprünge. Der Hauptweg nennt dieselben Nummern, ist aber kein Sprungziel. */
+  anchor: boolean;
+  content: Inline[];
+}
 
 export type Block =
   | { type: 'paragraph'; content: Inline[] }
-  | { type: 'list'; items: Inline[][] };
+  | { type: 'list'; items: Inline[][] }
+  | { type: 'heading'; level: number; text: string; anchor?: number }
+  | { type: 'numbered'; items: NumberedItem[] };
 
 export interface Step {
   number: number;

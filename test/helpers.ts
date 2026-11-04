@@ -1,4 +1,5 @@
-import { convertBpmn, renderHtml, type ConvertResult } from '../src/core/index.ts';
+import { convertBpmn, renderHtml, type ConvertResult, type DocumentForm } from '../src/core/index.ts';
+import { inlineText } from '../src/core/compose.ts';
 
 const BPMN_NS = 'http://www.omg.org/spec/BPMN/20100524/MODEL';
 
@@ -28,10 +29,22 @@ export interface Converted extends ConvertResult {
   codes: string[];
 }
 
-export async function convert(xml: string | Uint8Array): Promise<Converted> {
-  const result = await convertBpmn(xml, { fallbackTitle: 'Dateiname' });
+/** Der sichtbare Text eines Dokuments, jeder Block in einer Zeile, Überschriften mit #. */
+export function visibleText(html: string): string {
+  return html
+    .slice(html.indexOf('<main>'))
+    .replace(/<h([1-6])[^>]*>/g, (_match, level: string) => `\n${'#'.repeat(Number(level))} `)
+    .replace(/<li(?:\s+value="(\d+)")?[^>]*>/g, (_match, value?: string) => `\n[${value ?? ''}] `)
+    .replace(/<\/?p[^>]*>/g, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&#(\d+);/g, (_match, code: string) => String.fromCharCode(Number(code)))
+    .replace(/\n\s*\n/g, '\n')
+    .trim();
+}
+
+export async function convert(xml: string | Uint8Array, form: DocumentForm = 'a'): Promise<Converted> {
+  const result = await convertBpmn(xml, { fallbackTitle: 'Dateiname', form });
   const steps = result.document.sections.flatMap((section) => section.steps);
-  const inlineText = (inline: string | { text: string }): string => (typeof inline === 'string' ? inline : inline.text);
   return {
     ...result,
     html: renderHtml(result.document),
@@ -41,11 +54,10 @@ export async function convert(xml: string | Uint8Array): Promise<Converted> {
       const step = steps.find((candidate) => candidate.number === number);
       if (!step) throw new Error(`Schritt ${number} fehlt`);
       return step.blocks
-        .flatMap((block) =>
-          block.type === 'paragraph'
-            ? [block.content.map(inlineText).join('')]
-            : block.items.map((item) => item.map(inlineText).join('')),
-        )
+        .flatMap((block) => {
+          if (block.type === 'paragraph') return [block.content.map(inlineText).join('')];
+          return block.type === 'list' ? block.items.map((item) => item.map(inlineText).join('')) : [];
+        })
         .join(' | ');
     },
   };

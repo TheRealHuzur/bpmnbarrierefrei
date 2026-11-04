@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Defs" targetNamespace="urn:bpmnbarrierefrei:test">
+  <bpmn:process id="Proc" name="Modell mit absichtlichen Fehlern">
+    <bpmn:startEvent id="S" />
+    <bpmn:task id="T_Ohne" />
+    <bpmn:exclusiveGateway id="G_Ohne" />
+    <bpmn:task id="T_Sackgasse" name="Aufgabe ohne Fortsetzung" />
+    <bpmn:subProcess id="SP" name="Teilprozess mit Inhalt">
+      <bpmn:startEvent id="SP_S" name="Innen Start" />
+      <bpmn:task id="SP_T" name="Innen Aufgabe" />
+      <bpmn:sequenceFlow id="SP_f" sourceRef="SP_S" targetRef="SP_T" />
+    </bpmn:subProcess>
+    <bpmn:inclusiveGateway id="G_Inkl" name="Welche Prüfungen?" />
+    <bpmn:task id="T_A" name="Prüfung A" />
+    <bpmn:task id="T_B" name="Prüfung B" />
+    <bpmn:endEvent id="E" />
+    <bpmn:task id="T_Insel" name="Aufgabe ohne Verbindung" />
+    <bpmn:sequenceFlow id="f1" sourceRef="S" targetRef="T_Ohne" />
+    <bpmn:sequenceFlow id="f2" sourceRef="T_Ohne" targetRef="G_Ohne" />
+    <bpmn:sequenceFlow id="f3" sourceRef="G_Ohne" targetRef="T_Sackgasse" />
+    <bpmn:sequenceFlow id="f4" sourceRef="G_Ohne" targetRef="SP" />
+    <bpmn:sequenceFlow id="f5" sourceRef="SP" targetRef="G_Inkl" />
+    <bpmn:sequenceFlow id="f6" name="A" sourceRef="G_Inkl" targetRef="T_A" />
+    <bpmn:sequenceFlow id="f7" name="B" sourceRef="G_Inkl" targetRef="T_B" />
+    <bpmn:sequenceFlow id="f8" sourceRef="T_A" targetRef="E" />
+    <bpmn:sequenceFlow id="f9" sourceRef="T_B" targetRef="E" />
+  </bpmn:process>
+</bpmn:definitions>

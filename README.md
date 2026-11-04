@@ -13,10 +13,16 @@ npm install
 ```
 
 ```bash
-npm run convert -- modell.bpmn -o dokument.html
+npm run convert -- modell.bpmn -o dokument.html --fassung b
 ```
 
+Es gibt zwei Dokumentformen im Vergleich: Fassung `a` ist eine flache Schrittliste, Fassung `b` stellt Zweige unter ihre Entscheidung und nutzt Links nur für echte Sprünge. Ohne Angabe gilt `a`.
+
 Der Prüfbericht zeigt, wo das Modell für Lesende Lücken hat, etwa fehlende Namen.
+
+Unter Windows geht es auch ohne Kommandozeile: Eine BPMN-Datei auf `bpmn-testen.cmd` ziehen. Beide Fassungen entstehen neben dem Modell, Fassung B öffnet sich im Browser.
+
+Zum Ausprobieren gibt es eine [Testanleitung](docs/test/TESTANLEITUNG.md) mit Beispielmodellen und Verständnisfragen.
 
 ## Entwicklung
 
