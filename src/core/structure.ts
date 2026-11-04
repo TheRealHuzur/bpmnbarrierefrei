@@ -1,4 +1,5 @@
 import type { BoundaryInfo, Exit, GraphNode, ProcessGraph } from './analyze.ts';
+import { reversePostorder } from './linearize.ts';
 
 export interface Jump {
   kind: 'back' | 'forward';
@@ -20,43 +21,74 @@ export type Item =
   | { type: 'side'; boundary: BoundaryInfo; body: Item[]; jumps: Jump[] }
   | { type: 'join'; node: GraphNode; absorbed: boolean; jump?: Jump }
   | { type: 'section'; section: 'together' | 'regular' | 'other-start' }
-  | { type: 'later'; node: GraphNode };
+  | { type: 'later'; node: GraphNode }
+  | { type: 'unconnected'; node: GraphNode };
 
-export interface ProcessPlan {
+export interface ModelPlan {
   main: Item[];
   /** Vom Start aus nicht erreichbar. */
   unreachable: Item[];
+  /** Beginn von Teilen, die keine Nachricht mit dem Rest verbindet. */
+  unconnected: GraphNode[];
+}
+
+/** Eine Nachricht zwischen zwei Schritten legt fest, was zeitlich zuerst kommt. */
+export interface MessageLink {
+  from: GraphNode;
+  to: GraphNode;
 }
 
 const ROOT = -1;
 
-interface Dominance {
-  rpo: Map<GraphNode, number>;
-  children: Map<GraphNode | null, GraphNode[]>;
-  subtreeSize: Map<GraphNode, number>;
-  forwardEdges: Map<GraphNode, number>;
-}
-
 function successorsOf(node: GraphNode): GraphNode[] {
   return [...node.exits, ...node.boundaries.flatMap((boundary) => boundary.exits)].map((exit) => exit.target);
+}
+
+/** Zeitliche Reihenfolge über alle Pools: Wer eine Nachricht empfängt, steht hinter dem, der sie sendet. */
+function chronologicalOrder(graphs: ProcessGraph[], messages: Map<GraphNode, GraphNode[]>): GraphNode[] {
+  const all = graphs.flatMap((graph) => graph.nodes);
+  const receivers = new Set([...messages.values()].flat());
+  const next = (node: GraphNode): GraphNode[] => [...successorsOf(node), ...(messages.get(node) ?? [])];
+  const opens = (node: GraphNode): boolean => node.kind === 'start' || node.entries.every((entry) => entry === node);
+
+  const seen = new Set<GraphNode>();
+  const reachable = all.filter((node) => !node.unreachable);
+  const order = reversePostorder(reachable.filter((node) => opens(node) && !receivers.has(node)), next, seen);
+  const addRest = (candidates: GraphNode[]): void => {
+    let rest = candidates.filter((node) => !seen.has(node));
+    while (rest.length) {
+      const starts = rest.filter(opens);
+      order.push(...reversePostorder(starts.length ? starts : rest.slice(0, 1), next, seen));
+      rest = rest.filter((node) => !seen.has(node));
+    }
+  };
+  addRest(reachable);
+  addRest(all);
+  return order;
 }
 
 /**
  * Dominatorbaum nach Cooper, Harvey und Kennedy: Ein Knoten dominiert einen anderen,
  * wenn jeder Weg vom Start dorthin über ihn führt. Nicht erreichbare Teile zählen getrennt.
  */
-function analyzeDominance(nodes: GraphNode[]): Dominance {
+function analyzeDominance(nodes: GraphNode[], messages: Map<GraphNode, GraphNode[]>) {
   const rpo = new Map(nodes.map((node, index) => [node, index]));
-  const counts = (edge: [GraphNode, GraphNode]): boolean => edge[0].unreachable === edge[1].unreachable;
-  const edges = nodes.flatMap((node) => successorsOf(node).map((target): [GraphNode, GraphNode] => [node, target])).filter(counts);
-
   const preds: number[][] = nodes.map(() => []);
   const forwardEdges = new Map<GraphNode, number>(nodes.map((node) => [node, 0]));
-  for (const [source, target] of edges) {
+  const forwardFlows = new Map<GraphNode, number>(nodes.map((node) => [node, 0]));
+
+  const addEdge = (source: GraphNode, target: GraphNode, isFlow: boolean): void => {
+    if (source.unreachable !== target.unreachable) return;
     const from = rpo.get(source)!;
     const to = rpo.get(target)!;
     preds[to]!.push(from);
-    if (from < to) forwardEdges.set(target, forwardEdges.get(target)! + 1);
+    if (from >= to) return;
+    forwardEdges.set(target, forwardEdges.get(target)! + 1);
+    if (isFlow) forwardFlows.set(target, forwardFlows.get(target)! + 1);
+  };
+  for (const node of nodes) {
+    for (const target of successorsOf(node)) addEdge(node, target, true);
+    for (const target of messages.get(node) ?? []) addEdge(node, target, false);
   }
 
   const idom: (number | undefined)[] = nodes.map(() => undefined);
@@ -93,7 +125,9 @@ function analyzeDominance(nodes: GraphNode[]): Dominance {
   nodes.forEach((node, index) => {
     const parentIndex = idom[index] ?? ROOT;
     const parent = parentIndex === ROOT ? null : nodes[parentIndex]!;
-    children.set(parent, [...(children.get(parent) ?? []), node]);
+    const siblings = children.get(parent);
+    if (siblings) siblings.push(node);
+    else children.set(parent, [node]);
   });
   for (let index = nodes.length - 1; index >= 0; index--) {
     const parentIndex = idom[index] ?? ROOT;
@@ -101,19 +135,24 @@ function analyzeDominance(nodes: GraphNode[]): Dominance {
     const parent = nodes[parentIndex]!;
     subtreeSize.set(parent, subtreeSize.get(parent)! + subtreeSize.get(nodes[index]!)!);
   }
-  return { rpo, children, subtreeSize, forwardEdges };
+  return { rpo, children, subtreeSize, forwardEdges, forwardFlows };
 }
 
 /**
- * Ordnet die Schritte in Blöcke: Zweige stehen unter ihrer Entscheidung, gemeinsame Fortsetzungen
- * dahinter. Was nicht in diese Form passt, wird zum Sprung. Jeder Knoten erscheint genau einmal,
+ * Ordnet alle Schritte des Modells zu einem einzigen Ablauf: Zweige stehen unter ihrer Entscheidung,
+ * gemeinsame Fortsetzungen dahinter, Übergaben per Nachricht führen in den anderen Pool.
+ * Was nicht in diese Form passt, wird zum Sprung. Jeder Knoten erscheint genau einmal,
  * denn er wird dort eingehängt, wo sein Vater im Dominatorbaum steht.
  */
-export function planProcess(graph: ProcessGraph, firstNumber: number): { plan: ProcessPlan; nextNumber: number } {
-  const dominance = analyzeDominance(graph.nodes);
-  const { rpo, children, subtreeSize, forwardEdges } = dominance;
+export function planModel(graphs: ProcessGraph[], links: MessageLink[]): ModelPlan {
+  const messages = new Map<GraphNode, GraphNode[]>();
+  for (const { from, to } of links) messages.set(from, [...(messages.get(from) ?? []), to]);
+
+  const nodes = chronologicalOrder(graphs, messages);
+  const { rpo, children, subtreeSize, forwardEdges, forwardFlows } = analyzeDominance(nodes, messages);
+  const graphOf = new Map(graphs.flatMap((graph) => graph.nodes.map((node) => [node, graph] as const)));
   const absorbedJoins = new Set<GraphNode>();
-  let number = firstNumber;
+  let number = 1;
 
   const childrenOf = (node: GraphNode | null): GraphNode[] => children.get(node) ?? [];
 
@@ -132,12 +171,17 @@ export function planProcess(graph: ProcessGraph, firstNumber: number): { plan: P
       current = undefined;
       node.number = number++;
 
-      const targets = successorsOf(node);
+      const flowTargets = successorsOf(node);
+      const messageTargets = messages.get(node) ?? [];
       const own = childrenOf(node);
-      const inline = own.filter((child) => forwardEdges.get(child) === 1 && targets.includes(child));
+      const inline = own.filter(
+        (child) => forwardEdges.get(child) === 1 && (flowTargets.includes(child) || messageTargets.includes(child)),
+      );
       const merges = own.filter((child) => !inline.includes(child));
       const follow = merges[0];
       const isInline = (exit: Exit): boolean => inline.includes(exit.target);
+      // Empfänger einer Nachricht, zu denen sonst nichts hinführt: Hier geht der Ablauf in den anderen Pool.
+      const handovers = inline.filter((child) => !flowTargets.includes(child));
 
       const isJoinKind = node.kind === 'join' || node.kind === 'join-split';
       const absorbed = absorbedJoins.has(node);
@@ -151,6 +195,9 @@ export function planProcess(graph: ProcessGraph, firstNumber: number): { plan: P
             .filter((jump): jump is Jump => jump !== undefined);
           items.push({ type: 'side', boundary, body, jumps });
         }
+      };
+      const addHandovers = (after: GraphNode | undefined): void => {
+        handovers.forEach((handover, index) => items.push(...build(handover, handovers[index + 1] ?? after)));
       };
 
       let continuation: GraphNode | undefined;
@@ -176,6 +223,7 @@ export function planProcess(graph: ProcessGraph, firstNumber: number): { plan: P
         const sideFall = main ? undefined : (follow ?? inheritedFall);
 
         addSides();
+        addHandovers(undefined);
         const exits = main ? [...node.exits.filter((exit) => exit !== main), main] : node.exits;
         const branches: Branch[] = exits.map((exit) => {
           if (exit === main) return { label: exit.label, body: [], continues: true };
@@ -200,6 +248,7 @@ export function planProcess(graph: ProcessGraph, firstNumber: number): { plan: P
         else items.push({ type: 'step', node, ...(jump ? { jump } : {}) });
 
         addSides();
+        addHandovers(inlineNext ?? follow ?? inheritedFall);
         if (inlineNext) {
           if (node.boundaries.length) items.push({ type: 'section', section: 'regular' });
           if (merges.length) items.push(...build(inlineNext, follow));
@@ -213,31 +262,39 @@ export function planProcess(graph: ProcessGraph, firstNumber: number): { plan: P
       }
 
       merges.forEach((merge, index) => {
-        const isLast = index === merges.length - 1;
+        // Kommt nur eine Nachricht dazu, laufen keine Wege zusammen. Den Wechsel nennt dann die Pool-Überschrift.
+        const flowsTogether = forwardFlows.get(merge)! >= 2;
         const opensWithHeading = merge.exits.length > 1 || merge.kind === 'join' || merge.kind === 'join-split';
-        if (index > 0) items.push({ type: 'later', node: merge });
-        else if (!opensWithHeading) items.push({ type: 'section', section: 'together' });
-        if (isLast) current = merge;
+        if (index > 0 && flowsTogether) items.push({ type: 'later', node: merge });
+        else if (index === 0 && flowsTogether && !opensWithHeading) items.push({ type: 'section', section: 'together' });
+        if (index === merges.length - 1) current = merge;
         else items.push(...build(merge, merges[index + 1]));
       });
     }
     return items;
   };
 
-  const roots = childrenOf(null);
-  const buildGroup = (group: GraphNode[]): Item[] =>
+  const unconnected: GraphNode[] = [];
+  const buildGroup = (group: GraphNode[], trackConnections: boolean): Item[] =>
     group.flatMap((node, index) => {
       const items: Item[] = [];
-      if (index > 0) {
-        if (forwardEdges.get(node) === 0) items.push({ type: 'section', section: 'other-start' });
-        else if (!(node.exits.length > 1 || node.kind === 'join' || node.kind === 'join-split')) {
+      const previous = group[index - 1];
+      if (previous) {
+        const isOpening = forwardEdges.get(node) === 0;
+        if (isOpening && graphOf.get(previous) !== graphOf.get(node) && trackConnections) {
+          items.push({ type: 'unconnected', node });
+          unconnected.push(node);
+        } else if (isOpening) {
+          items.push({ type: 'section', section: 'other-start' });
+        } else if (forwardFlows.get(node)! >= 2 && !(node.exits.length > 1 || node.kind === 'join' || node.kind === 'join-split')) {
           items.push({ type: 'section', section: 'together' });
         }
       }
       return [...items, ...build(node, group[index + 1])];
     });
 
-  const main = buildGroup(roots.filter((node) => !node.unreachable));
-  const unreachable = buildGroup(roots.filter((node) => node.unreachable));
-  return { plan: { main, unreachable }, nextNumber: number };
+  const roots = childrenOf(null);
+  const main = buildGroup(roots.filter((node) => !node.unreachable), true);
+  const unreachable = buildGroup(roots.filter((node) => node.unreachable), false);
+  return { main, unreachable, unconnected };
 }

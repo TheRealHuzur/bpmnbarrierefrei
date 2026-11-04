@@ -16,7 +16,7 @@ npm install
 npm run convert -- modell.bpmn -o dokument.html --fassung b
 ```
 
-Es gibt zwei Dokumentformen im Vergleich: Fassung `a` ist eine flache Schrittliste, Fassung `b` stellt Zweige unter ihre Entscheidung und nutzt Links nur für echte Sprünge. Ohne Angabe gilt `a`.
+Es gibt zwei Dokumentformen im Vergleich: Fassung `a` ist je Pool eine flache Schrittliste. Fassung `b` führt chronologisch durch den ganzen Prozess, nennt Wechsel zwischen Beteiligten, stellt Zweige unter ihre Entscheidung und nutzt Links nur für echte Sprünge. Ohne Angabe gilt `a`.
 
 Der Prüfbericht zeigt, wo das Modell für Lesende Lücken hat, etwa fehlende Namen.
 

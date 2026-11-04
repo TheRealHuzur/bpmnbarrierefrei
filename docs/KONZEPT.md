@@ -1,6 +1,6 @@
 # Konzept und Plan: BPMN barrierefrei
 
-Stand: 4. November 2026. Status: Phase 1 umgesetzt, Fassung A und B warten auf den Vergleich durch Betroffene.
+Stand: 4. November 2026. Status: Phase 1 umgesetzt, Fassung B ist nach eigenen Tests der Favorit, der Vergleich durch Betroffene steht aus.
 
 ## Ziel
 
@@ -86,21 +86,31 @@ Das vollständige Beispiel liegt unter [beispiel/urlaubsantrag.html](beispiel/ur
 
 ### Zwei Fassungen im Vergleich
 
-Der erste eigene Test zeigte: Die Umwandlung funktioniert, aber die flache Schrittliste wird bei komplexeren Prozessen schwer zu verfolgen, und NVDA kündigt jeden Sprung innerhalb der Seite an. Das Bauantrag-Dokument hatte 36 Links bei 20 Schritten. Deshalb gibt es jetzt zwei Fassungen, zwischen denen Betroffene entscheiden sollen. Die Entscheidung ist noch offen.
+Der erste eigene Test zeigte: Die Umwandlung funktioniert, aber die flache Schrittliste wird bei komplexeren Prozessen schwer zu verfolgen, und NVDA kündigt jeden Sprung innerhalb der Seite an. Das Bauantrag-Dokument hatte 36 Links bei 20 Schritten. Deshalb entstand Fassung B.
 
-**Fassung A** ist die flache Liste nach den Regeln oben. Sie ist einfach und bleibt immer gleich aufgebaut, verlangt aber, den Prozess im Kopf zusammenzusetzen.
+Der zweite Test zeigte: Fassung B ist deutlich angenehmer, aber Abschnitte je Pool geben keinen Überblick über den Prozess. Man muss chronologisch durch den Prozess gehen können und dabei Wechsel, Schnittstellen und Zuständigkeiten mitbekommen. Fassung B wurde deshalb umgebaut, der Hauptweg als eigener Abschnitt entfiel dabei.
 
-**Fassung B** gliedert den Ablauf in Blöcke:
+Beide Tests stammen von einem sehenden Nutzer. Fassung B ist der aktuelle Favorit, die endgültige Entscheidung sollte der Vergleich durch Betroffene bringen. Fassung A bleibt bis dahin erhalten.
 
-- **Hauptweg zuerst:** Eine kurze Liste nennt die oberste Ebene, wenn der Prozess Verzweigungen hat.
+**Fassung A** ist je Pool eine flache Liste nach den Regeln oben. Sie ist einfach und bleibt immer gleich aufgebaut, verlangt aber, den Prozess im Kopf zusammenzusetzen.
+
+**Fassung B** führt nach Überblick und Beteiligten durch einen einzigen Ablauf:
+
+- **Chronologisch über alle Pools:** Nachrichtenflüsse legen fest, was zeitlich zuerst kommt. Wer eine Nachricht empfängt, steht hinter dem, der sie sendet.
+- **Schnittstellen als Überschriften:** „Beginn bei …“ und „Wechsel zu …“ markieren den Übergang zwischen Beteiligten, an der Stelle steht auch, was gesendet und empfangen wird.
 - **Zweige am Ort:** Jede Entscheidung ist eine Überschrift, ihre Fälle sind Überschriften eine Ebene tiefer, die Schritte stehen direkt darunter.
 - **Flach, wo es geht:** Läuft nach einer Entscheidung nichts zusammen, bleibt der größte Zweig auf der Ebene der Entscheidung. Lange Prozesse werden so nicht immer tiefer eingerückt.
 - **Links nur für echte Sprünge:** Das sind vor allem Rücksprünge. Verweise auf Nachrichten oder wartende Wege stehen als Text da.
 - **Weniger Ansagen:** Die Zuständigkeit erscheint beim Wechsel und nach Überschriften.
 
-Technisch beruht Fassung B auf dem Dominatorbaum des Prozessgraphen: Ein Schritt wird dort eingeordnet, wo alle Wege zu ihm vorbeiführen. Was nicht in Blöcke passt, wird zum Sprung. Das hält das Dokument auch bei unstrukturierten Modellen vollständig, geprüft mit zufällig erzeugten Graphen. HTML kennt nur sechs Überschriftenebenen, tiefere Zweige werden zu hervorgehobenen Absätzen.
+Technisch beruht Fassung B auf dem Dominatorbaum des Gesamtgraphen aus Sequenz- und Nachrichtenflüssen: Ein Schritt wird dort eingeordnet, wo alle Wege zu ihm vorbeiführen. Was nicht in Blöcke passt, wird zum Sprung. Das hält das Dokument auch bei unstrukturierten Modellen vollständig, geprüft mit zufällig erzeugten Graphen mit einem und mit zwei Pools. HTML kennt nur sechs Überschriftenebenen, tiefere Zweige werden zu hervorgehobenen Absätzen.
 
-Die Grenzen: Der Hauptweg ist eine Schätzung, das Programm nimmt den Zweig mit den meisten Schritten. Und ein sehr großer Prozess bleibt auch so anstrengend zu hören.
+Die Grenzen:
+
+- Sind Pools nur als Ganzes oder gar nicht über Nachrichten verbunden, lässt sich die Reihenfolge nicht vollständig ableiten. Das Dokument und der Prüfbericht sagen das dann ausdrücklich. Eine Nachricht an den Rand eines Pools führt zu dessen Start.
+- Gleichzeitige Wege müssen im Text trotzdem nacheinander stehen. Was parallel läuft, nennt das Dokument nur innerhalb eines Pools ausdrücklich, nach einer Nachricht laufen Sender und Empfänger im Text nacheinander.
+- Welcher Zweig ohne Einrückung weiterläuft, ist eine Schätzung: Das Programm nimmt den mit den meisten Schritten.
+- Ein sehr großer Prozess bleibt auch so anstrengend zu hören.
 
 ### BPMN-Abdeckung
 

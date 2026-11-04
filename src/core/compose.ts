@@ -99,10 +99,10 @@ function entryBlocks(node: GraphNode, previous: GraphNode | undefined): Block[] 
   return [sentence(previousLeadsHere ? de.steps.alsoFrom : de.steps.from, ...joined(others))];
 }
 
-export function detailBlocks(node: GraphNode): Block[] {
+export function detailBlocks(node: GraphNode, showEventKind = true): Block[] {
   const { element } = node;
   const blocks: Block[] = [];
-  if (element.$instanceOf('bpmn:Event') && node.kind !== 'other') {
+  if (showEventKind && element.$instanceOf('bpmn:Event') && node.kind !== 'other') {
     const eventKind = eventKindOf(element);
     if (eventKind) blocks.push(sentence(de.steps.eventKind(eventKind)));
   }

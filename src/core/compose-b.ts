@@ -1,4 +1,4 @@
-import { hasRole, isTaskLike, type BoundaryInfo, type GraphNode, type ProcessGraph } from './analyze.ts';
+import { hasRole, isTaskLike, type BoundaryInfo, type GraphNode } from './analyze.ts';
 import {
   detailBlocks,
   documentationOf,
@@ -10,15 +10,15 @@ import {
   type ComposeInput,
   type StepAttachments,
 } from './compose.ts';
-import type { Block, FlowSection, Inline, NumberedItem, ProcessDocument } from './document.ts';
+import type { Block, Inline, NumberedItem, ProcessDocument } from './document.ts';
 import { clean } from './text.ts';
 import { de } from './texts.de.ts';
-import type { Branch, Item, Jump, ProcessPlan } from './structure.ts';
+import type { Branch, Item, Jump, ModelPlan } from './structure.ts';
 
 const TOP_LEVEL = 3;
 
-/** Nachrichten verweisen hier nur in Worten auf andere Schritte, Links bleiben echten Sprüngen vorbehalten. */
-const plain = (content: Inline[]): Inline[] => content.map(inlineText);
+/** Verweise, die kein Sprung sind, stehen nur in Worten da. Links bleiben echten Sprüngen vorbehalten. */
+const plainList = (nodes: GraphNode[]): Inline[] => [nodes.map((node) => inlineText(ref(node))).join(', ')];
 
 const toInlines = (blocks: Block[]): Inline[] =>
   blocks.flatMap((block, index) => {
@@ -50,12 +50,20 @@ function branchTitle(node: GraphNode, branch: Branch, index: number, parallel: b
   return node.kind === 'branch' ? de.formB.wayLabeled(branch.label) : de.formB.caseLabeled(branch.label);
 }
 
+const nodeOfItem = (item: Item): GraphNode | undefined => {
+  if (item.type === 'section' || item.type === 'side' || item.type === 'unconnected') return undefined;
+  return item.node;
+};
+
 class SequenceWriter {
   private lastRole: string | undefined;
+  private lastPool: string | undefined;
   private readonly attachments: Map<GraphNode, StepAttachments>;
+  private readonly showPools: boolean;
 
-  constructor(attachments: Map<GraphNode, StepAttachments>) {
+  constructor(attachments: Map<GraphNode, StepAttachments>, showPools: boolean) {
     this.attachments = attachments;
+    this.showPools = showPools;
   }
 
   private details(node: GraphNode): Block[] {
@@ -63,8 +71,10 @@ class SequenceWriter {
     const blocks: Block[] = [];
     for (const doc of documentationOf(node.element)) blocks.push(sentence(doc));
     for (const note of attachment?.notes ?? []) blocks.push(sentence(de.steps.note(note)));
-    blocks.push(...detailBlocks(node));
-    for (const message of attachment?.messages ?? []) blocks.push(sentence(...plain(message)));
+    // „Empfängt …“ sagt schon, dass eine Nachricht der Auslöser ist.
+    const receivesMessage = Boolean(attachment?.messages.length) && eventKindOf(node.element) === de.eventKinds['bpmn:MessageEventDefinition'];
+    blocks.push(...detailBlocks(node, !receivesMessage));
+    for (const message of attachment?.messages ?? []) blocks.push(sentence(...message.map(inlineText)));
     if (node.unreachable && node.entries.every((entry) => entry === node)) blocks.push(sentence(de.steps.noWayIn));
     return blocks;
   }
@@ -123,6 +133,15 @@ class SequenceWriter {
     });
   }
 
+  /** Wechsel zwischen Pools sind die Schnittstellen des Prozesses und deshalb Überschriften. */
+  private poolChange(item: Item, level: number): Block[] {
+    const pool = nodeOfItem(item)?.pool;
+    if (!this.showPools || !pool || pool === this.lastPool) return [];
+    const text = this.lastPool === undefined ? de.formB.beginAt(pool) : de.formB.changeTo(pool);
+    this.lastPool = pool;
+    return [this.heading(level, text)];
+  }
+
   write(items: Item[], level: number): Block[] {
     const out: Block[] = [];
     let pending: NumberedItem[] = [];
@@ -133,6 +152,11 @@ class SequenceWriter {
 
     for (const [index, item] of items.entries()) {
       const next = items[index + 1];
+      const change = this.poolChange(item, level);
+      if (change.length) {
+        flush();
+        out.push(...change);
+      }
       if (item.type === 'step') {
         pending.push(this.stepItem(item.node, item.jump));
         continue;
@@ -169,19 +193,27 @@ class SequenceWriter {
           out.push(this.heading(level, text, item.node.number), ...this.details(item.node));
           if (!item.absorbed) {
             const waits = item.node.entries.filter((entry) => entry !== item.node);
-            if (waits.length) out.push(sentence(de.steps.waitFor, ...plain(waits.map(ref).flatMap((entry, index) => (index === 0 ? [entry] : [', ', entry])))));
+            if (waits.length) out.push(sentence(de.steps.waitFor, ...plainList(waits)));
           }
           if (item.jump) out.push(jumpSentence(item.jump));
           break;
         }
         case 'section':
           // Direkt vor einer anderen Überschrift bliebe dieser Abschnitt leer.
-          if (!opensWithHeading(next)) out.push(this.heading(level, de.formB.sections[item.section]));
+          if (!opensWithHeading(next) && !(next && this.showPools && nodeOfItem(next)?.pool !== this.lastPool)) {
+            out.push(this.heading(level, de.formB.sections[item.section]));
+          }
           break;
         case 'later': {
           const entries = item.node.entries.filter((entry) => entry !== item.node);
           out.push(this.heading(level, de.formB.later(item.node.number)));
-          if (entries.length) out.push(sentence(de.formB.comesFrom, ...plain(entries.map(ref).flatMap((entry, index) => (index === 0 ? [entry] : [', ', entry])))));
+          if (entries.length) out.push(sentence(de.formB.comesFrom, ...plainList(entries)));
+          break;
+        }
+        case 'unconnected': {
+          const name = item.node.pool ?? de.labels.unnamed;
+          this.lastPool = item.node.pool;
+          out.push(this.heading(level, de.formB.unconnected(name)), sentence(de.formB.unconnectedNote));
           break;
         }
       }
@@ -191,42 +223,16 @@ class SequenceWriter {
   }
 }
 
-/** Der Hauptweg nennt nur die oberste Ebene: das, was bleibt, wenn man alle Zweige einklappt. */
-function mainPathItems(items: Item[]): NumberedItem[] {
-  return items.flatMap((item): NumberedItem[] => {
-    switch (item.type) {
-      case 'step':
-        return [{ number: item.node.number, anchor: false, content: [stepLabel(item.node)] }];
-      case 'choice':
-        return [{ number: item.node.number, anchor: false, content: [stepLabel(item.node)] }];
-      case 'parallel': {
-        const labels = item.branches.flatMap((branch) => {
-          const first = branch.body[0];
-          return first && first.type === 'step' ? [first.node.label] : [];
-        });
-        const text = labels.length === item.branches.length ? de.formB.mainParallel(labels) : item.node.label;
-        return [{ number: item.node.number, anchor: false, content: [text] }];
-      }
-      default:
-        return [];
-    }
-  });
-}
-
-export function composeDocumentB(input: ComposeInput, plans: Map<ProcessGraph, ProcessPlan>): ProcessDocument {
+export function composeDocumentB(input: ComposeInput, plan: ModelPlan): ProcessDocument {
   const { title, graphs, attachments, generalNotes, externals, freeMessages } = input;
   const allNodes = graphs.flatMap((graph) => graph.nodes);
   const tasks = allNodes.filter((node) => isTaskLike(node.kind)).length;
   const decisions = allNodes.filter((node) => node.kind === 'decision' || node.kind === 'branch').length;
   const ends = allNodes.filter((node) => node.kind === 'end').sort((a, b) => a.number - b.number);
+  const showPools = new Set(allNodes.map((node) => node.pool)).size > 1;
 
-  const overview: Block[] = [];
-  if (graphs.length === 1) {
-    for (const doc of documentationOf(graphs[0]!.process)) overview.push({ type: 'paragraph', content: [doc] });
-    overview.push(sentence(de.overview.single(allNodes.length, tasks, decisions)));
-  } else {
-    overview.push(sentence(de.overview.multiple(graphs.length, allNodes.length, tasks, decisions)));
-  }
+  const overview: Block[] = graphs.flatMap((graph) => documentationOf(graph.process)).map((doc) => ({ type: 'paragraph', content: [doc] }));
+  overview.push(sentence(de.overview.single(allNodes.length, tasks, decisions)));
   overview.push(
     ends.length ? sentence(de.overview.outcomes + ends.map((node) => node.label).join(', ')) : sentence(de.overview.noOutcomes),
   );
@@ -245,32 +251,14 @@ export function composeDocumentB(input: ComposeInput, plans: Map<ProcessGraph, P
   }
   for (const external of externals) roles.push([de.overview.roleExternal(external)]);
 
-  const sections: FlowSection[] = graphs.flatMap((graph) => {
-    const plan = plans.get(graph)!;
-    const owner = graphs.length > 1 ? sectionName(graph) : undefined;
-    const notes: Block[] = (generalNotes.get(graph) ?? []).map((note) => ({ type: 'paragraph', content: [de.overview.generalNote(note)] }));
-    if (graphs.length > 1) {
-      for (const doc of documentationOf(graph.process)) notes.push({ type: 'paragraph', content: [doc] });
-    }
-
-    const writer = new SequenceWriter(attachments);
-    const flow: Block[] = [...notes, ...writer.write(plan.main, TOP_LEVEL)];
-    if (plan.unreachable.length) {
-      flow.push({ type: 'heading', level: TOP_LEVEL, text: de.formB.unreachable }, ...writer.write(plan.unreachable, TOP_LEVEL));
-    }
-
-    const flowSection: FlowSection = { heading: owner ? de.headings.flowNamed(owner) : de.headings.flow, blocks: flow, steps: [] };
-    // Ohne Verzweigungen würde der Hauptweg den Ablauf nur wiederholen.
-    if (plan.main.every((item) => item.type === 'step')) return [flowSection];
-    return [
-      {
-        heading: owner ? de.formB.mainPathNamed(owner) : de.formB.mainPath,
-        blocks: [sentence(de.formB.mainPathIntro), { type: 'numbered', items: mainPathItems(plan.main) }],
-        steps: [],
-      },
-      flowSection,
-    ];
-  });
+  const notes: Block[] = graphs
+    .flatMap((graph) => generalNotes.get(graph) ?? [])
+    .map((note) => ({ type: 'paragraph', content: [de.overview.generalNote(note)] }));
+  const writer = new SequenceWriter(attachments, showPools);
+  const flow: Block[] = [...notes, ...writer.write(plan.main, TOP_LEVEL)];
+  if (plan.unreachable.length) {
+    flow.push({ type: 'heading', level: TOP_LEVEL, text: de.formB.unreachable }, ...writer.write(plan.unreachable, TOP_LEVEL));
+  }
 
   return {
     lang: de.lang,
@@ -282,6 +270,6 @@ export function composeDocumentB(input: ComposeInput, plans: Map<ProcessGraph, P
     roles,
     messagesHeading: de.headings.messages,
     messages: freeMessages.map((message) => [message]),
-    sections,
+    sections: [{ heading: de.headings.flow, blocks: flow, steps: [] }],
   };
 }

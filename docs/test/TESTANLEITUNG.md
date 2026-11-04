@@ -6,9 +6,9 @@ Dieser Test zeigt, ob man einen Prozess allein mit dem erzeugten Dokument verste
 
 | | Fassung A | Fassung B |
 | --- | --- | --- |
-| Aufbau | Flache Liste, jeder Schritt ist eine Überschrift | Zweige stehen unter ihrer Entscheidung, davor ein kurzer Hauptweg |
+| Aufbau | Je Pool eine flache Liste, jeder Schritt ist eine Überschrift | Ein Ablauf in zeitlicher Reihenfolge über alle Beteiligten, Zweige stehen unter ihrer Entscheidung |
 | Links im Bauantrag | 36 | 1 |
-| Überschriften | Jeder Schritt | Entscheidungen und ihre Fälle |
+| Überschriften | Jeder Schritt | Wechsel zwischen Beteiligten, Entscheidungen und ihre Fälle |
 | Zuständigkeit | Bei jedem Schritt | Beim Wechsel und nach Überschriften |
 | Dokument | [bauantrag.html](bauantrag.html) | [bauantrag-fassung-b.html](bauantrag-fassung-b.html) |
 
@@ -33,15 +33,15 @@ Versuche, diese Fragen nur mit dem Dokument zu beantworten. Danach mit der ander
 Das Modell ist ein erfundenes Beispiel, seine Quelle ist [bauantrag.bpmn](bauantrag.bpmn).
 
 <details>
-<summary>Lösungen (die Schrittnummern gelten für beide Fassungen)</summary>
+<summary>Lösungen</summary>
 
-1. Die Eingangsstelle, Schritt 6.
-2. Sie werden in Schritt 8 nachgefordert, danach geht es zurück zu Schritt 6.
-3. Die Nachforderung läuft weiter, zusätzlich wird in Schritt 9 eine Erinnerung gesendet. Dieser Nebenweg endet in Schritt 10.
-4. Bauordnungsrecht (Schritt 12) und Brandschutz (Schritt 13). Weiter geht es erst, wenn beide abgeschlossen sind, Schritt 14.
-5. Die Amtsleitung, Schritt 18. Genehmigung und Ablehnung führen beide dorthin, es ändert sich also nichts.
-6. Die Feuerwehr. Sie liefert die Stellungnahme zum Brandschutz, Schritt 13.
-7. Schritt 19 sendet den Bescheid an Schritt 3.
+1. Die Eingangsstelle.
+2. Sie werden nachgefordert, danach werden die Unterlagen erneut geprüft.
+3. Die Nachforderung läuft weiter, zusätzlich wird eine Erinnerung gesendet. Dieser Nebenweg endet danach.
+4. Bauordnungsrecht und Brandschutz. Weiter geht es erst, wenn beide fertig sind.
+5. Die Amtsleitung. Genehmigung und Ablehnung führen beide dorthin, es ändert sich also nichts.
+6. Die Feuerwehr. Sie liefert die Stellungnahme zum Brandschutz.
+7. Die Eingangsstelle versendet den Bescheid, die antragstellende Person erhält ihn.
 
 </details>
 
@@ -52,7 +52,7 @@ NVDA gibt es kostenlos unter [nvaccess.org](https://www.nvaccess.org/). Diese Ta
 | Taste | Wirkung |
 | --- | --- |
 | `H` | Nächste Überschrift |
-| `3` | Fassung A: nächster Schritt. Fassung B: nächste Entscheidung oder nächster Abschnitt |
+| `3` | Fassung A: nächster Schritt. Fassung B: nächste Entscheidung oder nächster Wechsel |
 | `4` | Fassung B: nächster Fall einer Entscheidung |
 | `I` | Fassung B: nächster Schritt in einer Liste |
 | `K` | Nächster Link |
@@ -64,9 +64,9 @@ Prüfe dabei:
 
 - Bekommt man schnell eine Vorstellung vom ganzen Prozess?
 - Findet man sich bei Entscheidungen zurecht: Welcher Fall läuft gerade, wo geht es danach weiter?
+- Sind Wechsel und Schnittstellen zwischen den Beteiligten klar?
 - Findet man nach einem Sprung zurück?
 - Stören oder helfen die Ansagen zu Listen, Links und „Zuständig“?
-- Hilft der Hauptweg in Fassung B oder ist er doppelt?
 - Spricht der Screenreader Schrittnummern und Namen richtig aus?
 
 ## Test 3: Mit Vergrößerung und hohem Kontrast
@@ -109,7 +109,8 @@ Danach kannst du das erzeugte Dokument ansehen: Keines der Elemente darf fehlen.
 - Inklusive und ereignisbasierte Gateways werden nur allgemein beschrieben.
 - Verbindungsereignisse (Link) werden noch nicht mit ihrem Gegenstück verknüpft.
 - Der Prüfbericht nennt technische Typen wie `bpmn:StartEvent` und steht nur im Fenster, nicht im Dokument.
-- Der Hauptweg in Fassung B ist eine Schätzung: Das Programm nimmt den Zweig mit den meisten Schritten. Das muss nicht der fachliche Normalfall sein.
+- Die zeitliche Reihenfolge in Fassung B ergibt sich aus Sequenz- und Nachrichtenflüssen. Pools ohne Nachrichtenfluss zu einzelnen Schritten lassen sich nicht einordnen, das Dokument sagt das dann ausdrücklich. Laufen Wege gleichzeitig, muss eine Reihenfolge gewählt werden, auch wenn sie im Modell nicht festgelegt ist.
+- Nach einer Entscheidung läuft der Zweig mit den meisten Schritten ohne Einrückung weiter. Das muss nicht der fachliche Normalfall sein.
 - Unsauber modellierte Prozesse lassen sich nicht immer verschachteln, dort bleiben in Fassung B einzelne Sprünge.
 - Es gibt noch kein DOCX und kein PDF.
 

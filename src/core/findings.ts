@@ -9,6 +9,7 @@ export type FindingCode =
   | 'unreachable'
   | 'dead-end'
   | 'implicit-split'
+  | 'unconnected-pool'
   | 'unsupported';
 
 export interface Finding {

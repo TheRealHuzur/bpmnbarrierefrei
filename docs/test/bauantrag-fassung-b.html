@@ -23,9 +23,9 @@ ol{list-style-position:inside;padding-inline-start:0}
 <main>
 <h1>Bauantrag</h1>
 <h2>Überblick</h2>
-<p>Dieses Dokument beschreibt 2 Prozesse mit zusammen 20 Schritten, davon 10 Aufgaben und 2 Entscheidungen.</p>
-<p>Mögliche Ergebnisse: Verfahren abgeschlossen, Erinnerung versandt, Vorgang abgeschlossen.</p>
-<p>So lesen Sie das Dokument: Der Hauptweg gibt einen schnellen Überblick. Im Ablauf ist jede Entscheidung eine Überschrift, und jeder ihrer Fälle ist eine Überschrift eine Ebene tiefer. Die Schritte haben durchgehende Nummern. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion des Browsers wieder an die vorige Stelle.</p>
+<p>Dieser Prozess hat 20 Schritte, davon 10 Aufgaben und 2 Entscheidungen.</p>
+<p>Mögliche Ergebnisse: Erinnerung versandt, Vorgang abgeschlossen, Verfahren abgeschlossen.</p>
+<p>So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte haben durchgehende Nummern. Wechsel zwischen den Beteiligten und Entscheidungen sind Überschriften, die Fälle einer Entscheidung sind Überschriften eine Ebene tiefer. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion des Browsers wieder an die vorige Stelle.</p>
 <h2>Beteiligte</h2>
 <ul>
 <li>Antragstellende Person: Bauantrag einreichen</li>
@@ -34,67 +34,59 @@ ol{list-style-position:inside;padding-inline-start:0}
 <li>Bauamt, Amtsleitung: Bescheid zeichnen</li>
 <li>Feuerwehr: externe Stelle, im Modell ohne eigene Schritte</li>
 </ul>
-<h2>Ablauf: Antragstellende Person</h2>
+<h2>Ablauf</h2>
+<h3>Beginn bei Antragstellende Person</h3>
 <ol>
 <li value="1" id="s1"><strong>Start: Bauvorhaben geplant.</strong></li>
-<li value="2" id="s2"><strong>Bauantrag einreichen.</strong> Zuständig: Antragstellende Person. Sendet „Bauantrag“ an Schritt 5: Bauantrag eingegangen.</li>
-<li value="3" id="s3"><strong>Ereignis: Bescheid erhalten.</strong> Art des Ereignisses: Nachricht. Empfängt „Bescheid“ von Schritt 19: Bescheid versenden.</li>
-<li value="4" id="s4"><strong>Ende: Verfahren abgeschlossen.</strong> Dieser Weg endet hier.</li>
+<li value="2" id="s2"><strong>Bauantrag einreichen.</strong> Zuständig: Antragstellende Person. Sendet „Bauantrag“ an Bauamt.</li>
 </ol>
-<h2>Hauptweg: Bauamt</h2>
-<p>Das sind die wichtigsten Schritte ohne Sonderfälle. Alle Einzelheiten stehen im Ablauf.</p>
+<h3>Wechsel zu Bauamt</h3>
 <ol>
-<li value="5">Start: Bauantrag eingegangen</li>
-<li value="6">Unterlagen auf Vollständigkeit prüfen</li>
-<li value="7">Entscheidung: Unterlagen vollständig?</li>
-<li value="11">Gleichzeitig: Bauordnungsrecht prüfen und Brandschutz prüfen</li>
-<li value="15">Entscheidung: Genehmigungsfähig?</li>
-<li value="18">Bescheid zeichnen</li>
-<li value="19">Bescheid versenden</li>
-<li value="20">Ende: Vorgang abgeschlossen</li>
+<li value="3" id="s3"><strong>Start: Bauantrag eingegangen.</strong> Empfängt „Bauantrag“ von Antragstellende Person.</li>
+<li value="4" id="s4"><strong>Unterlagen auf Vollständigkeit prüfen.</strong> Zuständig: Eingangsstelle. Pflichtunterlagen laut Checkliste abgleichen. Benötigt: Checkliste Bauantrag.</li>
 </ol>
-<h2>Ablauf: Bauamt</h2>
-<ol>
-<li value="5" id="s5"><strong>Start: Bauantrag eingegangen.</strong> Art des Ereignisses: Nachricht. Empfängt „Bauantrag“ von Schritt 2: Bauantrag einreichen.</li>
-<li value="6" id="s6"><strong>Unterlagen auf Vollständigkeit prüfen.</strong> Zuständig: Eingangsstelle. Pflichtunterlagen laut Checkliste abgleichen. Benötigt: Checkliste Bauantrag.</li>
-</ol>
-<h3 id="s7">Schritt 7, Entscheidung: Unterlagen vollständig?</h3>
+<h3 id="s5">Schritt 5, Entscheidung: Unterlagen vollständig?</h3>
 <p>Zuständig: Eingangsstelle.</p>
 <p>Hinweis: Die gesetzliche Bearbeitungsfrist läuft ab Vollständigkeit.</p>
 <h4>Falls Nein</h4>
 <ol>
-<li value="8" id="s8"><strong>Fehlende Unterlagen nachfordern.</strong> Zuständig: Eingangsstelle. Danach zurück zu <a href="#s6">Schritt 6: Unterlagen auf Vollständigkeit prüfen</a>.</li>
+<li value="6" id="s6"><strong>Fehlende Unterlagen nachfordern.</strong> Zuständig: Eingangsstelle. Danach zurück zu <a href="#s4">Schritt 4: Unterlagen auf Vollständigkeit prüfen</a>.</li>
 </ol>
 <h5>Sonderfall Frist: 14 Tage ohne Antwort</h5>
 <p>Die Aufgabe läuft weiter, zusätzlich passiert Folgendes:</p>
 <ol>
-<li value="9" id="s9"><strong>Erinnerung senden.</strong> Zuständig: Eingangsstelle.</li>
-<li value="10" id="s10"><strong>Ende: Erinnerung versandt.</strong> Dieser Weg endet hier.</li>
+<li value="7" id="s7"><strong>Erinnerung senden.</strong> Zuständig: Eingangsstelle.</li>
+<li value="8" id="s8"><strong>Ende: Erinnerung versandt.</strong> Dieser Weg endet hier.</li>
 </ol>
 <h4>Falls Ja</h4>
 <p>Es geht direkt hier weiter.</p>
-<h3 id="s11">Schritt 11: 2 Wege laufen gleichzeitig</h3>
+<h3 id="s9">Schritt 9: 2 Wege laufen gleichzeitig</h3>
 <p>Diese Wege laufen gleichzeitig.</p>
 <ol>
-<li value="12" id="s12"><strong>Bauordnungsrecht prüfen.</strong> Zuständig: Sachbearbeitung.</li>
-<li value="13" id="s13"><strong>Brandschutz prüfen.</strong> Empfängt „Stellungnahme Brandschutz“ von Feuerwehr.</li>
+<li value="10" id="s10"><strong>Bauordnungsrecht prüfen.</strong> Zuständig: Sachbearbeitung.</li>
+<li value="11" id="s11"><strong>Brandschutz prüfen.</strong> Empfängt „Stellungnahme Brandschutz“ von Feuerwehr.</li>
 </ol>
-<h3 id="s14">Schritt 14: Warten, bis alle gleichzeitigen Wege fertig sind</h3>
-<h3 id="s15">Schritt 15, Entscheidung: Genehmigungsfähig?</h3>
+<h3 id="s12">Schritt 12: Warten, bis alle gleichzeitigen Wege fertig sind</h3>
+<h3 id="s13">Schritt 13, Entscheidung: Genehmigungsfähig?</h3>
 <p>Zuständig: Sachbearbeitung.</p>
 <h4>Falls Ja</h4>
 <ol>
-<li value="16" id="s16"><strong>Genehmigung erstellen.</strong> Zuständig: Sachbearbeitung.</li>
+<li value="14" id="s14"><strong>Genehmigung erstellen.</strong> Zuständig: Sachbearbeitung.</li>
 </ol>
 <h4>Falls Nein</h4>
 <ol>
-<li value="17" id="s17"><strong>Ablehnung mit Begründung erstellen.</strong> Zuständig: Sachbearbeitung.</li>
+<li value="15" id="s15"><strong>Ablehnung mit Begründung erstellen.</strong> Zuständig: Sachbearbeitung.</li>
 </ol>
 <h3>Danach gemeinsam weiter</h3>
 <ol>
-<li value="18" id="s18"><strong>Bescheid zeichnen.</strong> Zuständig: Amtsleitung. Erzeugt: Bescheid.</li>
-<li value="19" id="s19"><strong>Bescheid versenden.</strong> Zuständig: Eingangsstelle. Sendet „Bescheid“ an Schritt 3: Bescheid erhalten.</li>
-<li value="20" id="s20"><strong>Ende: Vorgang abgeschlossen.</strong> Dieser Weg endet hier.</li>
+<li value="16" id="s16"><strong>Bescheid zeichnen.</strong> Zuständig: Amtsleitung. Erzeugt: Bescheid.</li>
+<li value="17" id="s17"><strong>Bescheid versenden.</strong> Zuständig: Eingangsstelle. Sendet „Bescheid“ an Antragstellende Person.</li>
+<li value="18" id="s18"><strong>Ende: Vorgang abgeschlossen.</strong> Dieser Weg endet hier.</li>
+</ol>
+<h3>Wechsel zu Antragstellende Person</h3>
+<ol>
+<li value="19" id="s19"><strong>Ereignis: Bescheid erhalten.</strong> Empfängt „Bescheid“ von Bauamt.</li>
+<li value="20" id="s20"><strong>Ende: Verfahren abgeschlossen.</strong> Dieser Weg endet hier.</li>
 </ol>
 </main>
 </body>

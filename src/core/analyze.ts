@@ -36,6 +36,8 @@ export interface GraphNode {
   /** Der Name stammt nicht aus dem Modell, sondern beschreibt nur die Struktur. */
   labelIsGenerated: boolean;
   role?: string;
+  /** Pool oder Prozess, zu dem der Schritt gehört. */
+  pool?: string;
   exits: Exit[];
   boundaries: BoundaryInfo[];
   entries: GraphNode[];
@@ -214,6 +216,8 @@ export function analyzeProcess(process: BpmnElement, context: AnalyzeContext): P
     };
     const role = laneOf.get(element) ?? poolName;
     if (role && hasRole(kind)) node.role = role;
+    const pool = poolName ?? clean(process.name);
+    if (pool) node.pool = pool;
     nodes.push(node);
     nodeOf.set(element, node);
   }

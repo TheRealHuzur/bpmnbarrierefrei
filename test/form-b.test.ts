@@ -139,16 +139,6 @@ describe('Gleichzeitige Wege', () => {
     expect(text).toMatch(/#### Weg 1\n\[\d+\] A\.\n\[\d+\] A2\.\n#### Weg 2\n\[\d+\] B\./);
     expectValidDocument(html);
   });
-
-  it('nennt im Hauptweg beide gleichzeitigen Aufgaben', async () => {
-    const { text } = await b(
-      model(
-        start + '<bpmn:parallelGateway id="PS" />' + task('A') + task('B') + '<bpmn:parallelGateway id="PJ" />' + end() +
-          flows('S>PS', 'PS>A', 'PS>B', 'A>PJ', 'B>PJ', 'PJ>E'),
-      ),
-    );
-    expect(text).toContain('Gleichzeitig: A und B');
-  });
 });
 
 describe('Sonderfälle an Aufgaben', () => {
@@ -185,23 +175,139 @@ describe('Weniger Ansagen', () => {
     expect(text.match(/Zuständig: Rolle Eins/g)).toHaveLength(1);
     expect(text.match(/Zuständig: Rolle Zwei/g)).toHaveLength(1);
   });
+});
 
-  it('lässt den Hauptweg weg, wenn es nichts zu überblicken gibt', async () => {
-    const { text } = await b(model(start + task('A') + end() + flows('S>A', 'A>E')));
-    expect(text).not.toContain('## Hauptweg');
+describe('Ein chronologischer Ablauf über alle Pools', () => {
+  const BPMN = 'xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="D" targetNamespace="urn:t"';
+  const pools = (participants: string, messages: string, processes: string) =>
+    `<bpmn:definitions ${BPMN}><bpmn:collaboration id="C">${participants}${messages}</bpmn:collaboration>${processes}</bpmn:definitions>`;
+  const pool = (id: string, name: string, process: string) => `<bpmn:participant id="${id}" name="${name}" processRef="${process}" />`;
+  const message = (id: string, name: string, source: string, target: string) => `<bpmn:messageFlow id="${id}" name="${name}" sourceRef="${source}" targetRef="${target}" />`;
+  const process = (id: string, body: string) => `<bpmn:process id="${id}">${body}</bpmn:process>`;
+  /** Sequenzflüsse mit eindeutigen IDs, auch über mehrere Prozesse hinweg. */
+  const flowsIn = (prefix: string, ...pairs: string[]) =>
+    pairs
+      .map((pair, index) => {
+        const [source, target] = pair.split('>');
+        return `<bpmn:sequenceFlow id="${prefix}${index}" sourceRef="${source}" targetRef="${target}" />`;
+      })
+      .join('');
+
+  const expectInOrder = (text: string, parts: string[]): void => {
+    let position = -1;
+    for (const part of parts) {
+      const next = text.indexOf(part, position + 1);
+      expect(next, `„${part}“ steht nicht hinter dem vorigen Teil`).toBeGreaterThan(position);
+      position = next;
+    }
+  };
+
+  const conversation = (firstPool: 'kunde' | 'amt') => {
+    const kunde = pool('P1', 'Kunde', 'K');
+    const amt = pool('P2', 'Amt', 'A');
+    return pools(
+      firstPool === 'kunde' ? kunde + amt : amt + kunde,
+      message('M1', 'Anfrage', 'K1', 'SA') + message('M2', 'Antwort', 'A1', 'KW'),
+      process('K', '<bpmn:startEvent id="SK" name="Bedarf" />' + task('K1', 'Anfrage senden') +
+        '<bpmn:intermediateCatchEvent id="KW" name="Antwort da"><bpmn:messageEventDefinition id="m" /></bpmn:intermediateCatchEvent>' +
+        task('K2', 'Antwort lesen') + end('EK', 'Erledigt') + flowsIn('k', 'SK>K1', 'K1>KW', 'KW>K2', 'K2>EK')) +
+      process('A', '<bpmn:startEvent id="SA" name="Anfrage da" />' + task('A1', 'Antwort senden') + end('EA', 'Beantwortet') + flowsIn('a', 'SA>A1', 'A1>EA')),
+    );
+  };
+
+  it('folgt der Unterhaltung zwischen den Pools', async () => {
+    const { text, html, links } = await b(conversation('kunde'));
+    expectInOrder(text, [
+      '### Beginn bei Kunde', 'Bedarf', 'Anfrage senden', 'Sendet „Anfrage“ an Amt',
+      '### Wechsel zu Amt', 'Anfrage da', 'Empfängt „Anfrage“ von Kunde', 'Antwort senden', 'Sendet „Antwort“ an Kunde',
+      '### Wechsel zu Kunde', 'Antwort da', 'Empfängt „Antwort“ von Amt', 'Antwort lesen', 'Erledigt',
+    ]);
+    expect(links).toBe(0);
+    expectValidDocument(html);
   });
 
-  it('nennt im Hauptweg nur die oberste Ebene', async () => {
+  it('beginnt beim Auslöser, auch wenn der Pool in der Datei später steht', async () => {
+    const { text } = await b(conversation('amt'));
+    expect(text).toContain('### Beginn bei Kunde');
+    expectInOrder(text, ['Bedarf', 'Anfrage senden', 'Anfrage da', 'Antwort senden', 'Antwort da']);
+  });
+
+  it('hat nur einen Abschnitt „Ablauf“, keine Abschnitte je Pool und keinen Hauptweg', async () => {
+    const { text, document } = await b(conversation('kunde'));
+    expect(document.sections.map((section) => section.heading)).toEqual(['Ablauf']);
+    expect(text).not.toContain('Ablauf:');
+    expect(text).not.toContain('Hauptweg');
+  });
+
+  it('nennt nichts doppelt, wenn eine Nachricht den Start auslöst', async () => {
     const { text } = await b(
-      model(
-        start + '<bpmn:exclusiveGateway id="G" name="Frage?" />' + task('Seitenweg') + end('E1', 'Abbruch') + task('Lang1') + task('Lang2') + end('E2', 'Fertig') +
-          named('n', 'Nein', 'G', 'Seitenweg') + named('j', 'Ja', 'G', 'Lang1') + flows('S>G', 'Seitenweg>E1', 'Lang1>Lang2', 'Lang2>E2'),
+      pools(
+        pool('P1', 'Kunde', 'K') + pool('P2', 'Amt', 'A'),
+        message('M1', 'Anfrage', 'K1', 'SA'),
+        process('K', task('K1', 'Senden')) +
+          process('A', '<bpmn:startEvent id="SA" name="Eingang"><bpmn:messageEventDefinition id="m" /></bpmn:startEvent>'),
       ),
     );
-    const mainPath = text.slice(text.indexOf('## Hauptweg'), text.indexOf('## Ablauf'));
-    expect(mainPath).toContain('Entscheidung: Frage?');
-    expect(mainPath).toContain('Lang1');
-    expect(mainPath).not.toContain('Seitenweg');
+    expect(text).toContain('Start: Eingang. Empfängt „Anfrage“ von Kunde.');
+    expect(text).not.toContain('Art des Ereignisses');
+  });
+
+  it('führt eine Nachricht an den Rand eines Pools zu dessen Start', async () => {
+    const { text, codes } = await b(
+      pools(
+        pool('P1', 'Kunde', 'K') + pool('P2', 'Amt', 'A'),
+        message('M1', 'Anfrage', 'K1', 'P2'),
+        process('A', '<bpmn:startEvent id="SA" name="Eingang" />' + task('A1', 'Bearbeiten') + flowsIn('a', 'SA>A1')) +
+          process('K', '<bpmn:startEvent id="SK" name="Bedarf" />' + task('K1', 'Senden') + flowsIn('k', 'SK>K1')),
+      ),
+    );
+    expectInOrder(text, ['### Beginn bei Kunde', 'Senden', 'Sendet „Anfrage“ an Amt', '### Wechsel zu Amt', 'Eingang', 'Empfängt „Anfrage“ von Kunde', 'Bearbeiten']);
+    expect(codes).not.toContain('unconnected-pool');
+  });
+
+  it('wechselt auch aus einem Zweig heraus in den anderen Pool und zurück', async () => {
+    const { text, html } = await b(
+      pools(
+        pool('P1', 'Kunde', 'K') + pool('P2', 'Amt', 'A'),
+        message('M1', 'Beschwerde', 'K1', 'SA'),
+        process('K',
+          '<bpmn:startEvent id="SK" name="Bedarf" /><bpmn:exclusiveGateway id="G" name="Zufrieden?" />' + task('K1', 'Beschweren') + task('K2', 'Bewerten') + end('EK', 'Erledigt') +
+            named('n', 'Nein', 'G', 'K1') + named('j', 'Ja', 'G', 'K2') + flowsIn('k', 'SK>G', 'K1>EK', 'K2>EK')) +
+          process('A', '<bpmn:startEvent id="SA" name="Beschwerde da" />' + task('A1', 'Prüfen') + end('EA', 'Geprüft') + flowsIn('a', 'SA>A1', 'A1>EA')),
+      ),
+    );
+    expectValidDocument(html);
+    expectInOrder(text, ['Beginn bei Kunde', 'Falls Nein', 'Beschweren', 'Wechsel zu Amt', 'Prüfen']);
+    expect(text).toMatch(/Wechsel zu Kunde[\s\S]*Bewerten|Bewerten[\s\S]*Wechsel zu Amt/);
+  });
+
+  it('sagt offen, wenn Pools nicht verbunden sind, und meldet es', async () => {
+    const { text, codes, html } = await b(
+      pools(
+        pool('P1', 'Kunde', 'K') + pool('P2', 'Amt', 'A'),
+        '',
+        process('K', '<bpmn:startEvent id="SK" name="Bedarf" />' + task('K1', 'Senden') + flowsIn('k', 'SK>K1')) +
+          process('A', '<bpmn:startEvent id="SA" name="Eingang" />' + task('A1', 'Bearbeiten') + flowsIn('a', 'SA>A1')),
+      ),
+    );
+    expect(text).toContain('### Weiterer Teil: Amt\nDas Modell verbindet diesen Teil nicht mit dem vorigen. Die zeitliche Reihenfolge ist deshalb nicht festgelegt.');
+    expect(text).not.toContain('Wechsel zu');
+    expect(codes).toContain('unconnected-pool');
+    expectValidDocument(html);
+  });
+
+  it('kommt mit einer Nachricht an ein Grenzereignis zurecht', async () => {
+    const { html, text } = await b(
+      pools(
+        pool('P1', 'Kunde', 'K') + pool('P2', 'Amt', 'A'),
+        message('M1', 'Storno', 'K1', 'BE'),
+        process('K', '<bpmn:startEvent id="SK" name="Bedarf" />' + task('K1', 'Stornieren') + flowsIn('k', 'SK>K1')) +
+          process('A', '<bpmn:startEvent id="SA" name="Eingang" />' + task('A1', 'Bearbeiten') + task('A2', 'Rückabwickeln') +
+            '<bpmn:boundaryEvent id="BE" name="Storno" attachedToRef="A1"><bpmn:messageEventDefinition id="m" /></bpmn:boundaryEvent>' + flowsIn('a', 'SA>A1', 'BE>A2')),
+      ),
+    );
+    expectValidDocument(html);
+    expect(text).toContain('Rückabwickeln');
   });
 });
 
@@ -305,6 +411,47 @@ describe('Zufällige, auch unsaubere Modelle', () => {
     }
     expect(result.findings).toEqual(a.findings);
   });
+
+  it.each(Array.from({ length: 100 }, (_, index) => index + 1))('Startwert %i mit zwei Pools und Nachrichten: jeder Schritt genau einmal', async (seed) => {
+    const next = random(seed * 7919);
+    const types = ['task', 'task', 'task', 'exclusiveGateway', 'parallelGateway'];
+    const buildProcess = (prefix: string) => {
+      const count = 3 + Math.floor(next() * 12);
+      const ids = Array.from({ length: count }, (_, index) => `${prefix}${index}`);
+      let body = `<bpmn:startEvent id="${prefix}S" name="Start ${prefix}" />`;
+      for (const id of ids) body += `<bpmn:${types[Math.floor(next() * types.length)]} id="${id}" name="Element ${id}" />`;
+      const edges = new Set([`${prefix}S>${prefix}0`]);
+      for (let index = 0; index < count * 1.4; index++) {
+        const source = Math.floor(next() * count);
+        const target = next() < 0.8 ? Math.min(count - 1, source + 1 + Math.floor(next() * 3)) : Math.floor(next() * count);
+        edges.add(`${ids[source]}>${ids[target]}`);
+      }
+      const flowXml = [...edges]
+        .map((edge, index) => {
+          const [source, target] = edge.split('>');
+          return `<bpmn:sequenceFlow id="${prefix}f${index}" sourceRef="${source}" targetRef="${target}" />`;
+        })
+        .join('');
+      return { ids, xml: `<bpmn:process id="Proc${prefix}">${body}${flowXml}</bpmn:process>` };
+    };
+    const first = buildProcess('X');
+    const second = buildProcess('Y');
+    let messages = '';
+    for (let index = 0; index < 1 + Math.floor(next() * 4); index++) {
+      const [from, to] = next() < 0.5 ? [first.ids, second.ids] : [second.ids, first.ids];
+      messages += `<bpmn:messageFlow id="M${index}" name="Nachricht ${index}" sourceRef="${from[Math.floor(next() * from.length)]}" targetRef="${to[Math.floor(next() * to.length)]}" />`;
+    }
+    const xml = `<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="D" targetNamespace="urn:t">
+      <bpmn:collaboration id="C"><bpmn:participant id="PX" name="Pool X" processRef="ProcX" /><bpmn:participant id="PY" name="Pool Y" processRef="ProcY" />${messages}</bpmn:collaboration>
+      ${first.xml}${second.xml}</bpmn:definitions>`;
+
+    const a = await convert(xml, 'a');
+    const result = await b(xml);
+    expectValidDocument(result.html);
+    const stepsInA = a.document.sections.flatMap((section) => section.steps).length;
+    expect(stepIds(result.html)).toEqual(Array.from({ length: stepsInA }, (_, index) => index + 1));
+    expect(result.document.sections).toHaveLength(1);
+  });
 });
 
 describe('Beispiele', () => {
@@ -315,15 +462,20 @@ describe('Beispiele', () => {
     expect(findings).toEqual([]);
     expect(links).toBe(1);
     expectValidDocument(html);
-    expect(text).toContain('[6] Unterlagen auf Vollständigkeit prüfen. Zuständig: Eingangsstelle.');
-    expect(text).toMatch(/#### Falls Nein\n\[8\] Fehlende Unterlagen nachfordern\.[^\n]*Danach zurück zu Schritt 6/);
-    expect(text).toContain('Die Aufgabe läuft weiter, zusätzlich passiert Folgendes:\n[9] Erinnerung senden.');
-    expect(text).toContain('[12] Bauordnungsrecht prüfen.');
-    expect(text).toContain('[13] Brandschutz prüfen.');
-    expect(text).toContain('Schritt 14: Warten, bis alle gleichzeitigen Wege fertig sind');
-    expect(text).toContain('### Danach gemeinsam weiter\n[18] Bescheid zeichnen. Zuständig: Amtsleitung.');
+    expect(text).toContain('### Beginn bei Antragstellende Person\n[1] Start: Bauvorhaben geplant.\n[2] Bauantrag einreichen.');
+    expect(text).toContain('Sendet „Bauantrag“ an Bauamt.\n### Wechsel zu Bauamt\n[3] Start: Bauantrag eingegangen. Empfängt „Bauantrag“ von Antragstellende Person.');
+    expect(text).toContain('[4] Unterlagen auf Vollständigkeit prüfen. Zuständig: Eingangsstelle.');
+    expect(text).toMatch(/#### Falls Nein\n\[6\] Fehlende Unterlagen nachfordern\.[^\n]*Danach zurück zu Schritt 4/);
+    expect(text).toContain('Die Aufgabe läuft weiter, zusätzlich passiert Folgendes:\n[7] Erinnerung senden.');
+    expect(text).toContain('[10] Bauordnungsrecht prüfen.');
+    expect(text).toContain('[11] Brandschutz prüfen.');
+    expect(text).toContain('Schritt 12: Warten, bis alle gleichzeitigen Wege fertig sind');
+    expect(text).toContain('#### Falls Ja\n[14] Genehmigung erstellen.');
+    expect(text).toContain('#### Falls Nein\n[15] Ablehnung mit Begründung erstellen.');
+    expect(text).toContain('### Danach gemeinsam weiter\n[16] Bescheid zeichnen. Zuständig: Amtsleitung.');
     expect(text).toContain('von Feuerwehr');
-    expect(text).toContain('Sendet „Bescheid“ an Schritt 3');
+    expect(text).toContain('[17] Bescheid versenden. Zuständig: Eingangsstelle. Sendet „Bescheid“ an Antragstellende Person.');
+    expect(text).toContain('### Wechsel zu Antragstellende Person\n[19] Ereignis: Bescheid erhalten. Empfängt „Bescheid“ von Bauamt.\n[20] Ende: Verfahren abgeschlossen.');
     await expect(html).toMatchFileSnapshot('../docs/test/bauantrag-fassung-b.html');
   });
 

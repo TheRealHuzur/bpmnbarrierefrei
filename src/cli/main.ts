@@ -6,7 +6,7 @@ const USAGE = `Aufruf: npm run convert -- <modell.bpmn> [-o <ausgabe.html>] [--f
 
 Wandelt ein BPMN-2.0-Modell in ein barrierefreies HTML-Dokument um.
 Ohne -o entsteht die HTML-Datei neben dem Modell.
-Fassung a ist eine flache Schrittliste, Fassung b stellt Zweige unter ihre Entscheidung.`;
+Fassung a ist je Pool eine flache Schrittliste, Fassung b ein chronologischer Ablauf über alle Beteiligten.`;
 
 const SEVERITY_LABEL: Record<Finding['severity'], string> = { warning: 'Warnung', info: 'Hinweis' };
 

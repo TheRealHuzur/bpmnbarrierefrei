@@ -92,11 +92,12 @@ export const de = {
   },
 
   formB: {
-    mainPath: 'Hauptweg',
-    mainPathNamed: (name: string) => `Hauptweg: ${name}`,
-    mainPathIntro: 'Das sind die wichtigsten Schritte ohne Sonderfälle. Alle Einzelheiten stehen im Ablauf.',
     readingHelp:
-      'So lesen Sie das Dokument: Der Hauptweg gibt einen schnellen Überblick. Im Ablauf ist jede Entscheidung eine Überschrift, und jeder ihrer Fälle ist eine Überschrift eine Ebene tiefer. Die Schritte haben durchgehende Nummern. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion des Browsers wieder an die vorige Stelle.',
+      'So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte haben durchgehende Nummern. Wechsel zwischen den Beteiligten und Entscheidungen sind Überschriften, die Fälle einer Entscheidung sind Überschriften eine Ebene tiefer. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion des Browsers wieder an die vorige Stelle.',
+    beginAt: (pool: string) => `Beginn bei ${pool}`,
+    changeTo: (pool: string) => `Wechsel zu ${pool}`,
+    unconnected: (pool: string) => `Weiterer Teil: ${pool}`,
+    unconnectedNote: 'Das Modell verbindet diesen Teil nicht mit dem vorigen. Die zeitliche Reihenfolge ist deshalb nicht festgelegt.',
     back: 'Zurück zu ',
     backAfterStep: 'Danach zurück zu ',
     caseLabeled: (label: string) => `Falls ${label}`,
@@ -108,7 +109,6 @@ export const de = {
     continuesHere: 'Es geht direkt hier weiter.',
     parallelIntro: 'Diese Wege laufen gleichzeitig.',
     afterParallel: (number: number) => `Schritt ${number}: Warten, bis alle gleichzeitigen Wege fertig sind`,
-    mainParallel: (labels: string[]) => `Gleichzeitig: ${labels.join(' und ')}`,
     sideCase: (kind: string, name: string) => (name ? `Sonderfall ${kind}: ${name}` : `Sonderfall ${kind}`),
     interrupting: 'Die Aufgabe wird dabei abgebrochen.',
     nonInterrupting: 'Die Aufgabe läuft weiter, zusätzlich passiert Folgendes:',
@@ -159,5 +159,7 @@ export const de = {
     unsupportedSubprocess: (label: string) => `Der Inhalt von „${label}“ wird noch nicht im Dokument beschrieben.`,
     unsupportedLink: (label: string) => `Das Verbindungsereignis „${label}“ wird noch nicht mit seinem Gegenstück verknüpft.`,
     unsupportedGroup: (id: string) => `Die Gruppe ${id} ist nur optisch und erscheint nicht im Dokument.`,
+    unconnectedPool: (name: string) =>
+      `Keine Nachricht verbindet ${name} mit dem Rest des Modells. Die zeitliche Reihenfolge ist dort nicht festgelegt.`,
   },
 };
