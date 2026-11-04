@@ -6,7 +6,9 @@ Jeder Push auf `main` führt alle Prüfungen aus und veröffentlicht danach die 
 
 Die Umwandlung läuft auch dort nur im Browser, das Modell wird nicht übertragen. GitHub als Anbieter sieht aber den Seitenabruf, etwa die IP-Adresse, und sitzt in den USA. Für den Testbetrieb mit erfundenen oder unkritischen Modellen ist das vertretbar, für den Dauerbetrieb ist der eigene Server vorgesehen.
 
-Die Seite ist per `noindex` von Suchmaschinen ausgenommen. Das ist kein Zugriffsschutz: Wer den Link kennt, kann sie öffnen.
+Die Seite ist per `noindex` von Suchmaschinen ausgenommen. Das ist kein Zugriffsschutz: Das Repo und die Seite sind öffentlich, wer den Link kennt, kann sie öffnen.
+
+GitHub Pages schaltet sich für den Branch `gh-pages` beim ersten Push eines Nutzers ein, nicht bei einem Push aus der Action. Bei einem neuen Repo muss das also einmal von Hand geschehen, entweder durch so einen Push oder unter Settings, Pages.
 
 ## Eigener Server mit Docker
 
