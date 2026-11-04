@@ -6,40 +6,21 @@ export interface StepRef {
 
 export type Inline = string | StepRef | { strong: string };
 
-export interface NumberedItem {
-  number: number;
-  /** Ziel für Sprünge. Der Hauptweg nennt dieselben Nummern, ist aber kein Sprungziel. */
-  anchor: boolean;
-  content: Inline[];
-}
-
 export type Block =
   | { type: 'paragraph'; content: Inline[] }
-  | { type: 'list'; items: Inline[][] }
   | { type: 'heading'; level: number; text: string; anchor?: number }
-  | { type: 'numbered'; items: NumberedItem[] };
-
-export interface Step {
-  number: number;
-  heading: string;
-  blocks: Block[];
-}
-
-export interface FlowSection {
-  heading: string;
-  blocks: Block[];
-  steps: Step[];
-}
+  | { type: 'step'; anchor: number; content: Inline[] };
 
 export interface ProcessDocument {
   lang: string;
   title: string;
   documentTitle: string;
+  overviewHeading: string;
   overview: Block[];
   rolesHeading: string;
-  roles: Inline[][];
+  roles: string[];
   messagesHeading: string;
-  messages: Inline[][];
-  overviewHeading: string;
-  sections: FlowSection[];
+  messages: string[];
+  flowHeading: string;
+  flow: Block[];
 }

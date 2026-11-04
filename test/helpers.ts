@@ -1,5 +1,4 @@
-import { convertBpmn, renderHtml, type ConvertResult, type DocumentForm } from '../src/core/index.ts';
-import { inlineText } from '../src/core/compose.ts';
+import { convertBpmn, renderHtml, type ConvertResult } from '../src/core/index.ts';
 
 const BPMN_NS = 'http://www.omg.org/spec/BPMN/20100524/MODEL';
 
@@ -21,14 +20,6 @@ export function flows(...pairs: string[]): string {
     .join('');
 }
 
-export interface Converted extends ConvertResult {
-  html: string;
-  headings: string[];
-  /** Absätze und Listenpunkte eines Schritts als einfacher Text, Links als ihr Text. */
-  stepText(step: number): string;
-  codes: string[];
-}
-
 /** Der sichtbare Text eines Dokuments, jeder Block in einer Zeile, Überschriften mit #. */
 export function visibleText(html: string): string {
   return html
@@ -42,23 +33,21 @@ export function visibleText(html: string): string {
     .trim();
 }
 
-export async function convert(xml: string | Uint8Array, form: DocumentForm = 'a'): Promise<Converted> {
-  const result = await convertBpmn(xml, { fallbackTitle: 'Dateiname', form });
-  const steps = result.document.sections.flatMap((section) => section.steps);
+export interface Converted extends ConvertResult {
+  html: string;
+  text: string;
+  links: number;
+  codes: string[];
+}
+
+export async function convert(xml: string | Uint8Array): Promise<Converted> {
+  const result = await convertBpmn(xml, { fallbackTitle: 'Dateiname' });
+  const html = renderHtml(result.document);
   return {
     ...result,
-    html: renderHtml(result.document),
-    headings: steps.map((step) => step.heading),
+    html,
+    text: visibleText(html),
+    links: (html.match(/<a /g) ?? []).length,
     codes: result.findings.map((finding) => finding.code),
-    stepText: (number) => {
-      const step = steps.find((candidate) => candidate.number === number);
-      if (!step) throw new Error(`Schritt ${number} fehlt`);
-      return step.blocks
-        .flatMap((block) => {
-          if (block.type === 'paragraph') return [block.content.map(inlineText).join('')];
-          return block.type === 'list' ? block.items.map((item) => item.map(inlineText).join('')) : [];
-        })
-        .join(' | ');
-    },
   };
 }

@@ -1,6 +1,6 @@
 # Konzept und Plan: BPMN barrierefrei
 
-Stand: 4. November 2026. Status: Phase 1 umgesetzt, Fassung B ist nach eigenen Tests der Favorit, der Vergleich durch Betroffene steht aus.
+Stand: 4. November 2026. Status: Phase 1 umgesetzt, Dokumentform nach eigenen Tests gewählt, der Test mit Betroffenen steht aus.
 
 ## Ziel
 
@@ -16,7 +16,7 @@ Aus einem BPMN-2.0-Modell entsteht ein Dokument, das Menschen mit Sehbehinderung
 
 Die Umwandlung läuft vollständig im Browser. Der eigene Server liefert nur statische Dateien aus, das Modell verlässt den Rechner der Nutzenden nicht. Das ist technisch die einfachste und datenschutzrechtlich die stärkste Variante.
 
-Das Ergebnis ist ein nummeriertes, verlinktes Schritt-Dokument. Der Text entsteht regelbasiert und ohne KI, damit gleiche Modelle immer gleiche Dokumente ergeben und nichts dazuerfunden wird.
+Das Ergebnis ist ein Dokument, das chronologisch durch den ganzen Prozess führt. Der Text entsteht regelbasiert und ohne KI, damit gleiche Modelle immer gleiche Dokumente ergeben und nichts dazuerfunden wird.
 
 ## Kernentscheidungen
 
@@ -58,52 +58,59 @@ Der Kern des Problems: BPMN ist ein Graph, den Sehende mit einem Blick überflie
 ### Aufbau
 
 1. **Überblick:** Zahl der Schritte, mögliche Ergebnisse, kurze Lesehilfe.
-2. **Beteiligte:** Rollen aus Pools und Lanes, jeweils mit Links zu ihren Aufgaben.
-3. **Ablauf:** Jeder Schritt ist eine Überschrift mit Nummer, Art und Namen. So lässt sich mit der Screenreader-Taste für Überschriften von Schritt zu Schritt springen.
+2. **Beteiligte:** Nur die Namen aus Pools und Lanes, dazu externe Stellen. Was sie tun, steht im Ablauf.
+3. **Ablauf:** Ein einziger Abschnitt, der chronologisch durch den ganzen Prozess führt.
 
 ### Beispiel
 
-Auszug aus der Ausgabe des Spikes:
+Auszug aus dem Bauantrag:
 
-> **Schritt 4, Entscheidung: Antrag genehmigt?**
+> **Wechsel zu Bauamt**
 >
-> Zuständig: Führungskraft.
+> **Schritt 2, Start: Bauantrag eingegangen.** Empfängt „Bauantrag“ von Antragstellende Person.
 >
-> - Ja: weiter mit Schritt 5: 2 Wege laufen parallel
-> - Nein: weiter mit Schritt 11: Ablehnung begründen
+> **Schritt 3: Unterlagen auf Vollständigkeit prüfen.** Zuständig: Eingangsstelle.
+>
+> **Schritt 11, Entscheidung: Genehmigungsfähig?**
+>
+> **Falls Ja**
+>
+> **Schritt 12: Genehmigung erstellen.**
+>
+> **Falls Nein**
+>
+> **Schritt 13: Ablehnung mit Begründung erstellen.**
+>
+> **Danach gemeinsam weiter**
 
-Das vollständige Beispiel liegt unter [beispiel/urlaubsantrag.html](beispiel/urlaubsantrag.html), das Quellmodell unter [beispiel/urlaubsantrag.bpmn](beispiel/urlaubsantrag.bpmn).
+Das vollständige Dokument liegt unter [test/bauantrag.html](test/bauantrag.html), ein kürzeres Beispiel unter [beispiel/urlaubsantrag.html](beispiel/urlaubsantrag.html).
 
-### Regeln für die Linearisierung
+### Wie die Form entstand
 
-- **Reihenfolge:** Reverse Postorder ab den Startereignissen. Vorgänger stehen vor Nachfolgern, Zweige bleiben zusammen. Bei gleichrangigen Zweigen entscheidet künftig die Position im Diagramm, damit das Ergebnis stabil bleibt.
-- **Keine unnötigen Ansagen:** Steht nichts anderes da, folgt der nächste Schritt. Nur echte Sprünge werden genannt.
-- **Zusammenführende XOR-Gateways entfallen.** Sie enthalten keine Information für die Lesenden.
-- **Parallele Zusammenführungen bleiben** als eigener Warteschritt, weil dort eine echte Bedingung gilt.
-- **Schleifen und mehrere Zugänge** werden über „Erreichbar von“ mit Link sichtbar.
-- **Grenzereignisse** stehen beim Schritt, an dem sie hängen, zum Beispiel als Frist.
-- **Linktexte tragen immer Kontext**, weil Screenreader Links auch als reine Liste anbieten.
+Der erste eigene Test einer flachen Schrittliste zeigte: Die Umwandlung funktioniert, aber der Prozess wird schwer zu verfolgen, sobald er komplexer ist, und NVDA kündigt jeden Sprung innerhalb der Seite an. Das Bauantrag-Dokument hatte 36 Links bei 20 Schritten.
 
-### Zwei Fassungen im Vergleich
+Der zweite Test zeigte: Zweige unter ihrer Entscheidung sind deutlich angenehmer, aber Abschnitte je Pool geben keinen Überblick über den Prozess. Man muss chronologisch durch den Prozess gehen können und dabei Wechsel, Schnittstellen und Zuständigkeiten mitbekommen. Auch ein gesonderter Hauptweg entfiel deshalb, und die flache Liste wurde entfernt.
 
-Der erste eigene Test zeigte: Die Umwandlung funktioniert, aber die flache Schrittliste wird bei komplexeren Prozessen schwer zu verfolgen, und NVDA kündigt jeden Sprung innerhalb der Seite an. Das Bauantrag-Dokument hatte 36 Links bei 20 Schritten. Deshalb entstand Fassung B.
+Der dritte Test zeigte: Aufgaben bei den Beteiligten verwirren nur, und eine Listennummerierung neben „Schritt 5“ wirkt uneinheitlich und liest sich schlecht vor. Beteiligte sind seither nur Namen, jeder Arbeitsschritt heißt ausgeschrieben „Schritt N“, und Listen entfallen im Ablauf.
 
-Der zweite Test zeigte: Fassung B ist deutlich angenehmer, aber Abschnitte je Pool geben keinen Überblick über den Prozess. Man muss chronologisch durch den Prozess gehen können und dabei Wechsel, Schnittstellen und Zuständigkeiten mitbekommen. Fassung B wurde deshalb umgebaut, der Hauptweg als eigener Abschnitt entfiel dabei.
+Alle Tests stammen von einem sehenden Nutzer. Das endgültige Urteil steht noch aus, siehe Phase 0 und 6. Das formatunabhängige Dokumentmodell lässt bei Bedarf schnelle Änderungen zu.
 
-Beide Tests stammen von einem sehenden Nutzer. Fassung B ist der aktuelle Favorit, die endgültige Entscheidung sollte der Vergleich durch Betroffene bringen. Fassung A bleibt bis dahin erhalten.
+### Regeln für den Ablauf
 
-**Fassung A** ist je Pool eine flache Liste nach den Regeln oben. Sie ist einfach und bleibt immer gleich aufgebaut, verlangt aber, den Prozess im Kopf zusammenzusetzen.
-
-**Fassung B** führt nach Überblick und Beteiligten durch einen einzigen Ablauf:
-
+- **Ausgeschriebene Schritte statt Listen:** Jeder Arbeitsschritt beginnt mit „Schritt N“ und ist ein eigener Absatz. Start und Ende tragen keine Nummer, weil sie keine Arbeitsschritte sind. Ein Start, den eine Nachricht aus einem anderen Pool auslöst, zählt dagegen als Schritt, denn dort geschieht eine Übergabe.
 - **Chronologisch über alle Pools:** Nachrichtenflüsse legen fest, was zeitlich zuerst kommt. Wer eine Nachricht empfängt, steht hinter dem, der sie sendet.
 - **Schnittstellen als Überschriften:** „Beginn bei …“ und „Wechsel zu …“ markieren den Übergang zwischen Beteiligten, an der Stelle steht auch, was gesendet und empfangen wird.
 - **Zweige am Ort:** Jede Entscheidung ist eine Überschrift, ihre Fälle sind Überschriften eine Ebene tiefer, die Schritte stehen direkt darunter.
 - **Flach, wo es geht:** Läuft nach einer Entscheidung nichts zusammen, bleibt der größte Zweig auf der Ebene der Entscheidung. Lange Prozesse werden so nicht immer tiefer eingerückt.
 - **Links nur für echte Sprünge:** Das sind vor allem Rücksprünge. Verweise auf Nachrichten oder wartende Wege stehen als Text da.
-- **Weniger Ansagen:** Die Zuständigkeit erscheint beim Wechsel und nach Überschriften.
+- **Weniger Ansagen:** Die Zuständigkeit erscheint beim Wechsel und nach Überschriften. Steht nichts anderes da, folgt der nächste Schritt.
+- **Zusammenführende XOR-Gateways entfallen,** wenn sie keinen Namen haben. Sie enthalten keine Information für die Lesenden.
+- **Parallele Zusammenführungen bleiben** als eigener Warteschritt, weil dort eine echte Bedingung gilt.
+- **Grenzereignisse** erscheinen als Sonderfall direkt beim Schritt, an dem sie hängen.
+- **Reihenfolge von Zweigen:** Die Position im Diagramm entscheidet, ohne Diagrammdaten die Reihenfolge der Datei.
+- **Linktexte tragen immer Kontext**, weil Screenreader Links auch als reine Liste anbieten.
 
-Technisch beruht Fassung B auf dem Dominatorbaum des Gesamtgraphen aus Sequenz- und Nachrichtenflüssen: Ein Schritt wird dort eingeordnet, wo alle Wege zu ihm vorbeiführen. Was nicht in Blöcke passt, wird zum Sprung. Das hält das Dokument auch bei unstrukturierten Modellen vollständig, geprüft mit zufällig erzeugten Graphen mit einem und mit zwei Pools. HTML kennt nur sechs Überschriftenebenen, tiefere Zweige werden zu hervorgehobenen Absätzen.
+Technisch beruht der Ablauf auf dem Dominatorbaum des Gesamtgraphen aus Sequenz- und Nachrichtenflüssen: Ein Schritt wird dort eingeordnet, wo alle Wege zu ihm vorbeiführen. Was nicht in Blöcke passt, wird zum Sprung. Das hält das Dokument auch bei unstrukturierten Modellen vollständig, geprüft mit zufällig erzeugten Graphen mit einem und mit zwei Pools. HTML kennt nur sechs Überschriftenebenen, tiefere Zweige werden zu hervorgehobenen Absätzen.
 
 Die Grenzen:
 
@@ -120,7 +127,7 @@ Die Grenzen:
 | XOR- und parallele Gateways | Entscheidung, gleichzeitige Wege, Warten | 1 |
 | Pools und Lanes | Zuständigkeit, Liste der Beteiligten | 1 |
 | Dokumentation, Anmerkungen | Text beim Schritt | 1 |
-| Mehrere Prozesse in einem Modell | Eigener Abschnitt je Prozess | 1 |
+| Mehrere Prozesse in einem Modell | Ein gemeinsamer Ablauf mit Wechseln als Überschriften | 1 |
 | Grenzereignisse | Mit Art: Frist, Fehler, Nachricht; unterbrechend oder nicht | 1 |
 | Nachrichtenflüsse, Datenobjekte | Satz beim Schritt | 1 |
 | Zwischenereignisse | In Phase 1 mit Art, in Phase 2 mit eigenen Formulierungen für Warten und Auslösen | 1 und 2 |
@@ -205,7 +212,7 @@ Hochgeladene Modelle sind nicht vertrauenswürdige Eingaben. Das heruntergeladen
 
 ## Machbarkeits-Spike
 
-Das HTML im Ordner `docs/beispiel` stammt aus einem Wegwerf-Skript, das bewusst nicht Teil des Repos ist. Es ist eine Hörprobe, kein Produktstand. Die Fassung aus Phase 1 liegt unter `test/snapshots/urlaubsantrag.html`. Dieser Abschnitt beschreibt den Stand vor Phase 1.
+Dieser Abschnitt beschreibt den Stand vor Phase 1. Das erste Beispieldokument stammte aus einem Wegwerf-Skript, das nicht Teil des Repos ist.
 
 **Geprüft:**
 
@@ -233,17 +240,17 @@ Jede Phase endet mit etwas Nutzbarem.
 
 ### Phase 0: Hörprobe (läuft)
 
-- Fassung A und B mit ein bis zwei Betroffenen vergleichen, siehe [Testanleitung](test/TESTANLEITUNG.md). Der eigene Test reicht dafür nicht aus.
+- Die gewählte Form mit ein bis zwei Betroffenen prüfen, siehe [Testanleitung](test/TESTANLEITUNG.md). Der eigene Test reicht dafür nicht aus.
 - Echte Modelle sammeln: mindestens je eines aus bpmnDESK, Picture und Adonis.
-- **Fertig, wenn:** Die Dokumentform ist entschieden, die andere Fassung entfällt, und die Modelle liegen vor.
+- **Fertig, wenn:** Die Dokumentform ist bestätigt oder angepasst, und die Modelle liegen vor.
 
 ### Phase 1: Kern (umgesetzt)
 
 - Projektgerüst: TypeScript und Vitest, Vite kommt mit dem Frontend in Phase 3.
-- Einlesen, Analysieren, Linearisieren, HTML-Ausgabe, Kommandozeile: `npm run convert -- modell.bpmn [--fassung b]`.
+- Einlesen, Analysieren, Linearisieren, HTML-Ausgabe, Kommandozeile: `npm run convert -- modell.bpmn`.
 - Abdeckung gemäß Tabelle, Sicherheitstests.
 - **Fertig, wenn:** Die Kommandozeile macht aus den Beispielmodellen korrektes HTML und alle Tests laufen.
-- **Stand:** Für das Beispielmodell und die nachgestellten Exporte erfüllt. Der Lauf mit echten Exporten und ein Durchgang mit echtem Screenreader stehen noch aus. Das Beispielmodell ergibt 0 Verstöße in axe-core 4.14, wobei der Farbkontrast von axe nicht auswertbar war, weil das Dokument bewusst keine Farben festlegt. Bei 320 Pixeln Breite gibt es kein horizontales Scrollen.
+- **Stand:** Für das Beispielmodell und die nachgestellten Exporte erfüllt. Der Lauf mit echten Exporten und ein Durchgang mit echtem Screenreader stehen noch aus. Das Bauantrag-Dokument ergibt 0 Verstöße in axe-core 4.14, wobei der Farbkontrast von axe nicht auswertbar war, weil das Dokument bewusst keine Farben festlegt. Bei 320 Pixeln Breite gibt es kein horizontales Scrollen.
 
 ### Phase 2: Volle Abdeckung und Prüfbericht
 

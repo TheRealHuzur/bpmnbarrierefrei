@@ -152,7 +152,11 @@ export function planModel(graphs: ProcessGraph[], links: MessageLink[]): ModelPl
   const { rpo, children, subtreeSize, forwardEdges, forwardFlows } = analyzeDominance(nodes, messages);
   const graphOf = new Map(graphs.flatMap((graph) => graph.nodes.map((node) => [node, graph] as const)));
   const absorbedJoins = new Set<GraphNode>();
+  const receivers = new Set(links.map((link) => link.to));
+  // Start und Ende sind keine Arbeitsschritte. Ein Start, den eine Nachricht auslöst, ist aber eine Übergabe und zählt mit.
+  const isNumbered = (node: GraphNode): boolean => node.kind !== 'end' && (node.kind !== 'start' || receivers.has(node));
   let number = 1;
+  let anchor = 1;
 
   const childrenOf = (node: GraphNode | null): GraphNode[] => children.get(node) ?? [];
 
@@ -169,7 +173,8 @@ export function planModel(graphs: ProcessGraph[], links: MessageLink[]): ModelPl
     while (current) {
       const node: GraphNode = current;
       current = undefined;
-      node.number = number++;
+      node.anchor = anchor++;
+      if (isNumbered(node)) node.number = number++;
 
       const flowTargets = successorsOf(node);
       const messageTargets = messages.get(node) ?? [];
@@ -211,12 +216,13 @@ export function planModel(graphs: ProcessGraph[], links: MessageLink[]): ModelPl
 
         if (node.kind === 'join-split') items.push({ type: 'join', node, absorbed });
 
-        // Bei Parallelität laufen alle Wege gleichrangig. Sonst wird der größte Zweig zum Hauptweg, wenn nichts zusammenläuft.
+        // Bei Parallelität laufen alle Wege gleichrangig. Sonst läuft der größte Zweig flach weiter, wenn nichts zusammenläuft.
+        // Er steht zuletzt, bei gleicher Größe bleibt so die Reihenfolge des Modells erhalten.
         const inlineExits = node.exits.filter(isInline);
         const main =
           !isParallel && merges.length === 0
             ? inlineExits.reduce<Exit | undefined>(
-                (best, exit) => (!best || subtreeSize.get(exit.target)! > subtreeSize.get(best.target)! ? exit : best),
+                (best, exit) => (!best || subtreeSize.get(exit.target)! >= subtreeSize.get(best.target)! ? exit : best),
                 undefined,
               )
             : undefined;

@@ -8,14 +8,12 @@ if not exist node_modules call npm install --no-fund --no-audit
 
 node src\cli\main.ts "%~f1" -o "%~dpn1.html"
 if errorlevel 1 goto :end
-node src\cli\main.ts "%~f1" -o "%~dpn1-fassung-b.html" --fassung b >nul 2>nul
-if errorlevel 1 goto :end
-start "" "%~dpn1-fassung-b.html"
+start "" "%~dpn1.html"
 goto :end
 
 :usage
 echo Ziehe eine BPMN-Datei auf bpmn-testen.cmd.
-echo Neben dem Modell entstehen Fassung A und Fassung B, Fassung B oeffnet sich im Browser.
+echo Das Dokument entsteht neben dem Modell und oeffnet sich im Browser.
 
 :end
 echo.

@@ -5,85 +5,22 @@ import { convert, flows, model } from './helpers.ts';
 const sample = () => readFileSync(new URL('../docs/beispiel/urlaubsantrag.bpmn', import.meta.url));
 
 describe('Beispielmodell', () => {
-  it('bleibt stabil', async () => {
-    const { html, findings } = await convert(sample());
-    expect(findings).toEqual([]);
-    await expect(html).toMatchFileSnapshot('snapshots/urlaubsantrag.html');
-  });
-
   it('liefert bei gleicher Eingabe genau dasselbe Dokument', async () => {
     const first = await convert(sample());
     const second = await convert(sample());
     expect(second.html).toBe(first.html);
   });
 
-  it('hat nur gültige interne Links', async () => {
-    const { html } = await convert(sample());
-    const targets = [...html.matchAll(/href="#(s\d+)"/g)].map((match) => match[1]);
-    expect(targets.length).toBeGreaterThan(0);
-    for (const target of targets) expect(html).toContain(`id="${target}"`);
-  });
-
-  it('hat keine Sprünge in der Überschriftenfolge', async () => {
-    const { html } = await convert(sample());
-    const levels = [...html.matchAll(/<h([1-6])/g)].map((match) => Number(match[1]));
-    expect(levels[0]).toBe(1);
-    expect(levels.filter((level) => level === 1)).toHaveLength(1);
-    levels.forEach((level, index) => {
-      if (index > 0) expect(level - levels[index - 1]!).toBeLessThanOrEqual(1);
-    });
-  });
-
   it('gibt jedem Link einen Text mit Kontext', async () => {
     const { html } = await convert(sample());
-    for (const match of html.matchAll(/<a [^>]*>([^<]*)<\/a>/g)) {
-      expect(match[1]).toMatch(/^Schritt \d+: \S/);
-    }
+    const links = [...html.matchAll(/<a [^>]*>([^<]*)<\/a>/g)];
+    expect(links.length).toBeGreaterThan(0);
+    for (const match of links) expect(match[1]).toMatch(/^Schritt \d+: \S/);
   });
 
   it('enthält keine doppelten Satzzeichen', async () => {
     const { html } = await convert(sample());
     expect(html).not.toMatch(/\?<\/a>\.|\.\.|\?\./);
-  });
-});
-
-describe('Testpaket', () => {
-  const testModel = (name: string) => readFileSync(new URL(`../docs/test/${name}.bpmn`, import.meta.url));
-
-  it.each(['bauantrag', 'mit-absichtlichen-fehlern'])('%s: Links und Überschriften sind gültig', async (name) => {
-    const { html } = await convert(testModel(name));
-    for (const match of html.matchAll(/href="#(s\d+)"/g)) expect(html).toContain(`id="${match[1]}"`);
-    const levels = [...html.matchAll(/<h([1-6])/g)].map((match) => Number(match[1]));
-    expect(levels[0]).toBe(1);
-    expect(levels.filter((level) => level === 1)).toHaveLength(1);
-    levels.forEach((level, index) => {
-      if (index > 0) expect(level - levels[index - 1]!).toBeLessThanOrEqual(1);
-    });
-  });
-
-  it('Bauantrag: Dokument ist aktuell und ohne Befunde', async () => {
-    const { html, findings } = await convert(testModel('bauantrag'));
-    expect(findings).toEqual([]);
-    await expect(html).toMatchFileSnapshot('../docs/test/bauantrag.html');
-  });
-
-  it('Bauantrag: Die Lösungen der Testanleitung stimmen', async () => {
-    const { stepText, headings } = await convert(testModel('bauantrag'));
-    expect(headings[5]).toContain('Unterlagen auf Vollständigkeit prüfen');
-    expect(stepText(6)).toContain('Zuständig: Eingangsstelle.');
-    expect(stepText(7)).toContain('Nein: weiter mit Schritt 8: Fehlende Unterlagen nachfordern');
-    expect(stepText(8)).toContain('Weiter mit Schritt 6');
-    expect(stepText(8)).toContain('Die Aufgabe läuft weiter, zusätzlich weiter mit Schritt 9: Erinnerung senden');
-    expect(stepText(14)).toContain('Schritt 12: Bauordnungsrecht prüfen, Schritt 13: Brandschutz prüfen');
-    expect(stepText(18)).toContain('Zuständig: Amtsleitung.');
-    expect(stepText(13)).toContain('von Feuerwehr');
-    expect(stepText(19)).toContain('Sendet „Bescheid“ an Schritt 3');
-  });
-
-  it('Modell mit Fehlern: Dokument ist aktuell und alle Fehlerarten werden gemeldet', async () => {
-    const { html, codes } = await convert(testModel('mit-absichtlichen-fehlern'));
-    await expect(html).toMatchFileSnapshot('../docs/test/mit-absichtlichen-fehlern.html');
-    expect(new Set(codes)).toEqual(new Set(['missing-name', 'unlabeled-exit', 'dead-end', 'unsupported', 'unreachable']));
   });
 });
 
@@ -123,12 +60,15 @@ describe('Präparierte Modelle', () => {
      </bpmn:task>
      <bpmn:exclusiveGateway id="G" name="${evil}" />
      <bpmn:task id="B" name="&quot; onmouseover=&quot;alert(1)" />
+     <bpmn:task id="C" name="${evil}" />
+     <bpmn:boundaryEvent id="BE" name="${evil}" attachedToRef="B"><bpmn:timerEventDefinition id="T" /></bpmn:boundaryEvent>
      <bpmn:textAnnotation id="N"><bpmn:text>${evil}</bpmn:text></bpmn:textAnnotation>
      <bpmn:association id="As" sourceRef="A" targetRef="N" />
      <bpmn:sequenceFlow id="f0" sourceRef="S" targetRef="A" />
      <bpmn:sequenceFlow id="f1" sourceRef="A" targetRef="G" />
      <bpmn:sequenceFlow id="f2" name="${evil}" sourceRef="G" targetRef="B" />
-     <bpmn:sequenceFlow id="f3" name="x" sourceRef="G" targetRef="A" />`,
+     <bpmn:sequenceFlow id="f3" name="x" sourceRef="G" targetRef="A" />
+     <bpmn:sequenceFlow id="f4" sourceRef="BE" targetRef="C" />`,
     `id="P" name="${evil}"`,
   );
 

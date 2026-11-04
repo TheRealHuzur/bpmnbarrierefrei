@@ -23,12 +23,12 @@ describe('Exporte verschiedener Werkzeuge (nachgestellt)', () => {
   ])('liest Präfix %s', async (_label, prefix) => {
     const ns = prefix ? `xmlns:${prefix}="${BPMN_NS}"` : `xmlns="${BPMN_NS}"`;
     const root = prefix ? `${prefix}:definitions` : 'definitions';
-    const { headings } = await convert(`<${root} ${ns} id="D" targetNamespace="urn:t">${body(prefix)}</${root}>`);
-    expect(headings).toEqual(['Schritt 1, Start: Start', 'Schritt 2, Aufgabe: Aufgabe']);
+    const { text } = await convert(`<${root} ${ns} id="D" targetNamespace="urn:t">${body(prefix)}</${root}>`);
+    expect(text).toContain('Start: Start.\nSchritt 1: Aufgabe.');
   });
 
   it('übersteht Herstellerfelder, fremde Attribute und unbekannte Namensräume', async () => {
-    const { headings, stepText } = await convert(`<bpmn:definitions xmlns:bpmn="${BPMN_NS}"
+    const { text } = await convert(`<bpmn:definitions xmlns:bpmn="${BPMN_NS}"
       xmlns:hersteller="urn:hersteller" id="D" targetNamespace="urn:t" hersteller:version="9">
       <bpmn:extensionElements><hersteller:meta wert="1" /></bpmn:extensionElements>
       <bpmn:process id="P" hersteller:reifegrad="3">
@@ -41,22 +41,21 @@ describe('Exporte verschiedener Werkzeuge (nachgestellt)', () => {
       </bpmn:process>
       <hersteller:eigenerKnoten />
     </bpmn:definitions>`);
-    expect(headings).toHaveLength(2);
-    expect(stepText(2)).toContain('Beschreibung');
+    expect(text).toContain('Start: Start.\nSchritt 1: Aufgabe. Beschreibung.');
   });
 
   it('kommt ohne Diagrammdaten aus', async () => {
-    const { headings, codes } = await convert(
+    const { text, codes } = await convert(
       model('<bpmn:startEvent id="S" name="Start" /><bpmn:task id="A" name="A" /><bpmn:endEvent id="E" name="Ende" />' + flows('S>A', 'A>E')),
     );
-    expect(headings).toHaveLength(3);
+    expect(text).toContain('Start: Start.\nSchritt 1: A.\nEnde: Ende.');
     expect(codes).toEqual([]);
   });
 
   it('liest UTF-8 mit Byte-Order-Mark', async () => {
     const xml = `﻿${model('<bpmn:startEvent id="S" name="Prüfung" />')}`;
-    const { headings } = await convert(new TextEncoder().encode(xml));
-    expect(headings[0]).toContain('Prüfung');
+    const { text } = await convert(new TextEncoder().encode(xml));
+    expect(text).toContain('Start: Prüfung.');
   });
 
   it('liest UTF-16 mit Byte-Order-Mark', async () => {
@@ -68,31 +67,31 @@ describe('Exporte verschiedener Werkzeuge (nachgestellt)', () => {
       bytes[2 + index * 2] = code & 0xff;
       bytes[3 + index * 2] = code >> 8;
     }
-    const { headings } = await convert(bytes);
-    expect(headings[0]).toContain('Prüfung');
+    const { text } = await convert(bytes);
+    expect(text).toContain('Start: Prüfung.');
   });
 
   it('liest die im XML angegebene Kodierung ISO-8859-1', async () => {
     const xml = model('<bpmn:startEvent id="S" name="Prüfung" />').replace('UTF-8', 'ISO-8859-1');
     const bytes = Uint8Array.from(xml, (char) => char.charCodeAt(0));
-    const { headings } = await convert(bytes);
-    expect(headings[0]).toContain('Prüfung');
+    const { text } = await convert(bytes);
+    expect(text).toContain('Start: Prüfung.');
   });
 
   it('fügt für das Diagramm getrennte Namen wieder zusammen', async () => {
-    const { headings } = await convert(
+    const { text } = await convert(
       model('<bpmn:startEvent id="S" name="Urlaubs-&#10;antrag&#10;prüfen" />'),
     );
-    expect(headings[0]).toBe('Schritt 1, Start: Urlaubsantrag prüfen');
+    expect(text).toContain('Start: Urlaubsantrag prüfen.');
   });
 
   it('entfernt HTML aus der Dokumentation', async () => {
-    const { stepText, html } = await convert(
+    const { text, html } = await convert(
       model(
         `<bpmn:task id="A" name="A"><bpmn:documentation textFormat="text/html">&lt;p&gt;Erst &lt;b&gt;das&lt;/b&gt;&lt;/p&gt;&lt;p&gt;dann &amp;amp; jenes&lt;/p&gt;</bpmn:documentation></bpmn:task>`,
       ),
     );
-    expect(stepText(1)).toContain('Erst das dann & jenes');
+    expect(text).toContain('Erst das dann & jenes');
     expect(html).not.toContain('&lt;p');
   });
 });

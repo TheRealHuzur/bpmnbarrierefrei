@@ -2,18 +2,16 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { ConvertError, convertBpmn, renderHtml, type Finding } from '../core/index.ts';
 
-const USAGE = `Aufruf: npm run convert -- <modell.bpmn> [-o <ausgabe.html>] [--fassung a|b]
+const USAGE = `Aufruf: npm run convert -- <modell.bpmn> [-o <ausgabe.html>]
 
 Wandelt ein BPMN-2.0-Modell in ein barrierefreies HTML-Dokument um.
-Ohne -o entsteht die HTML-Datei neben dem Modell.
-Fassung a ist je Pool eine flache Schrittliste, Fassung b ein chronologischer Ablauf über alle Beteiligten.`;
+Ohne -o entsteht die HTML-Datei neben dem Modell.`;
 
 const SEVERITY_LABEL: Record<Finding['severity'], string> = { warning: 'Warnung', info: 'Hinweis' };
 
 function main(args: string[]): number {
   const positional: string[] = [];
   let output: string | undefined;
-  let form: string | undefined = 'a';
   for (let index = 0; index < args.length; index++) {
     const arg = args[index]!;
     if (arg === '-h' || arg === '--help') {
@@ -21,11 +19,10 @@ function main(args: string[]): number {
       return 0;
     }
     if (arg === '-o' || arg === '--output') output = args[++index];
-    else if (arg === '--fassung') form = args[++index];
     else positional.push(arg);
   }
   const input = positional[0];
-  if (!input || positional.length > 1 || (args.includes('-o') && !output) || (form !== 'a' && form !== 'b')) {
+  if (!input || positional.length > 1 || (args.includes('-o') && !output)) {
     console.error(USAGE);
     return 2;
   }
@@ -39,7 +36,7 @@ function main(args: string[]): number {
     return 1;
   }
 
-  convertBpmn(bytes, { fallbackTitle: basename(input, extname(input)), form }).then(
+  convertBpmn(bytes, { fallbackTitle: basename(input, extname(input)) }).then(
     ({ document, findings }) => {
       writeFileSync(output, renderHtml(document));
       console.log(`${output} geschrieben.`);

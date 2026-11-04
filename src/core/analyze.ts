@@ -43,7 +43,10 @@ export interface GraphNode {
   entries: GraphNode[];
   /** Vom Start aus führt kein Weg hierher. */
   unreachable: boolean;
+  /** Sichtbare Schrittnummer. 0 bei Start und Ende, die keine Arbeitsschritte sind. */
   number: number;
+  /** Eindeutiges Sprungziel, das auch Start und Ende haben. */
+  anchor: number;
 }
 
 export interface ProcessGraph {
@@ -213,6 +216,7 @@ export function analyzeProcess(process: BpmnElement, context: AnalyzeContext): P
       entries: [],
       unreachable: false,
       number: 0,
+      anchor: 0,
     };
     const role = laneOf.get(element) ?? poolName;
     if (role && hasRole(kind)) node.role = role;

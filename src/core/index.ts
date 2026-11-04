@@ -1,7 +1,6 @@
 import { analyzeProcess, readPositions, type GraphNode, type ProcessGraph } from './analyze.ts';
-import { composeDocument, type StepAttachments } from './compose.ts';
-import { composeDocumentB } from './compose-b.ts';
-import type { Inline, ProcessDocument } from './document.ts';
+import { composeDocument, refText, type StepAttachments } from './compose.ts';
+import type { ProcessDocument } from './document.ts';
 import { planModel, type MessageLink } from './structure.ts';
 import { ConvertError, type Finding } from './findings.ts';
 import { parseBpmn, type BpmnElement } from './parse.ts';
@@ -15,13 +14,9 @@ export { renderHtml } from './render-html.ts';
 
 export const MAX_FLOW_NODES = 5000;
 
-/** A: je Pool eine flache Schrittliste mit Links. B: ein chronologischer Ablauf, Zweige unter ihrer Entscheidung. */
-export type DocumentForm = 'a' | 'b';
-
 export interface ConvertOptions {
   /** Titel, falls das Modell selbst keinen Namen nennt, etwa der Dateiname. */
   fallbackTitle?: string;
-  form?: DocumentForm;
 }
 
 export interface ConvertResult {
@@ -82,13 +77,12 @@ export async function convertBpmn(input: string | Uint8Array, options: ConvertOp
     return nodeOf.get(element) ?? (element.attachedToRef ? nodeOf.get(element.attachedToRef) : undefined);
   };
 
-  const isFormB = options.form === 'b';
   const messageFlows = collaborations.flatMap((collaboration) => list(collaboration.messageFlows));
 
-  // In Fassung B führt eine Nachricht an den Rand eines Pools zu dessen Start.
+  // Eine Nachricht an den Rand eines Pools führt zu dessen Start.
   const receiverOf = (target: BpmnElement | undefined): GraphNode | undefined => {
     const direct = stepOf(target);
-    if (direct || !isFormB || !target?.processRef) return direct;
+    if (direct || !target?.processRef) return direct;
     return graphs.find((graph) => graph.process === target.processRef)?.nodes.find((node) => node.kind === 'start');
   };
 
@@ -102,12 +96,8 @@ export async function convertBpmn(input: string | Uint8Array, options: ConvertOp
     links.push({ from, to });
   }
 
-  const plan = isFormB ? planModel(graphs, links) : undefined;
-  if (!plan) {
-    let number = 0;
-    for (const graph of graphs) for (const node of graph.nodes) node.number = ++number;
-  }
-  for (const node of plan?.unconnected ?? []) {
+  const plan = planModel(graphs, links);
+  for (const node of plan.unconnected) {
     addFinding({
       severity: 'warning',
       code: 'unconnected-pool',
@@ -155,11 +145,10 @@ export async function convertBpmn(input: string | Uint8Array, options: ConvertOp
   const nameOfParty = (element: BpmnElement | undefined): string =>
     clean(element?.name) || de.steps.externalParty;
 
-  // Fassung B nennt an der Schnittstelle den Beteiligten, Fassung A verlinkt den Schritt.
-  const partyInline = (other: GraphNode | undefined, self: GraphNode, element: BpmnElement): Inline => {
+  // An der Schnittstelle zählt, mit wem ausgetauscht wird, nicht welcher Schritt das dort ist.
+  const partyName = (other: GraphNode | undefined, self: GraphNode, element: BpmnElement): string => {
     if (!other) return nameOfParty(element);
-    if (isFormB && other.pool && other.pool !== self.pool) return other.pool;
-    return { step: other.number, text: de.steps.ref(other.number, other.label) };
+    return other.pool && other.pool !== self.pool ? other.pool : refText(other);
   };
 
   const freeMessages: string[] = [];
@@ -172,8 +161,8 @@ export async function convertBpmn(input: string | Uint8Array, options: ConvertOp
     const message = clean(flow.name) || clean(flow.messageRef?.name);
     const sender = stepOf(source);
     const receiver = receiverOf(target);
-    if (sender) attachmentOf(sender).messages.push([de.steps.sends(message), partyInline(receiver, sender, target)]);
-    if (receiver) attachmentOf(receiver).messages.push([de.steps.receives(message), partyInline(sender, receiver, source)]);
+    if (sender) attachmentOf(sender).messages.push(de.steps.sends(message) + partyName(receiver, sender, target));
+    if (receiver) attachmentOf(receiver).messages.push(de.steps.receives(message) + partyName(sender, receiver, source));
     if (!sender && !receiver) {
       freeMessages.push(de.overview.messageBetween(message, nameOfParty(source), nameOfParty(target)));
     }
@@ -190,9 +179,8 @@ export async function convertBpmn(input: string | Uint8Array, options: ConvertOp
     clean(options.fallbackTitle) ||
     de.untitled;
 
-  const composeInput = { title, graphs, attachments, generalNotes, externals, freeMessages };
   return {
-    document: plan ? composeDocumentB(composeInput, plan) : composeDocument(composeInput),
+    document: composeDocument({ title, graphs, plan, attachments, generalNotes, externals, freeMessages }),
     findings,
   };
 }

@@ -13,7 +13,6 @@ export const de = {
     roles: 'Beteiligte',
     messages: 'Nachrichten zwischen Beteiligten',
     flow: 'Ablauf',
-    flowNamed: (name: string) => `Ablauf: ${name}`,
   },
 
   kinds: {
@@ -56,8 +55,8 @@ export const de = {
 
   steps: {
     heading: (number: number, kind: string, label: string) => `Schritt ${number}, ${kind}: ${label}`,
-    headingGenerated: (number: number, label: string) => `Schritt ${number}: ${label}`,
     ref: (number: number, label: string) => `Schritt ${number}: ${label}`,
+    short: (number: number) => `Schritt ${number}`,
     role: (role: string) => `Zuständig: ${role}`,
     note: (text: string) => `Hinweis: ${text}`,
     eventKind: (kind: string) => `Art des Ereignisses: ${kind}`,
@@ -66,23 +65,13 @@ export const de = {
     sends: (message: string) => (message ? `Sendet „${message}“ an ` : 'Sendet eine Nachricht an '),
     receives: (message: string) => (message ? `Empfängt „${message}“ von ` : 'Empfängt eine Nachricht von '),
     externalParty: 'eine externe Stelle',
-    alsoFrom: 'Auch erreichbar von: ',
-    from: 'Erreichbar von: ',
     noWayIn: 'Zu diesem Schritt führt im Modell kein Weg vom Start aus.',
     waitFor: 'Weiter erst, wenn diese Schritte abgeschlossen sind: ',
     next: 'Weiter mit ',
-    exitTo: (label: string) => `${label}: weiter mit `,
-    parallelExits: 'Diese Wege laufen gleichzeitig:',
     conditionalExits: 'Je nach Bedingung geht es so weiter:',
-    branchExits: 'Mögliche Wege:',
     pathEnds: 'Dieser Weg endet hier.',
     processEnds: 'Der gesamte Prozess endet hier sofort.',
     deadEnd: 'Danach ist im Modell kein weiterer Schritt vorgesehen.',
-    boundary: (kind: string, name: string) => (name ? `${kind} „${name}“: ` : `${kind}: `),
-    interrupting: 'Die Aufgabe wird abgebrochen, weiter mit ',
-    nonInterrupting: 'Die Aufgabe läuft weiter, zusätzlich weiter mit ',
-    interruptingNoExit: 'Die Aufgabe wird abgebrochen, danach ist kein weiterer Schritt vorgesehen.',
-    nonInterruptingNoExit: 'Die Aufgabe läuft weiter.',
     subprocessContent: (count: number) =>
       `Dieser Teilprozess enthält ${plural(count, 'weiteres Element', 'weitere Elemente')}, die in diesem Dokument noch nicht beschrieben sind.`,
     callActivity: (called: string) =>
@@ -91,9 +80,7 @@ export const de = {
         : 'Dieser Schritt ruft einen anderen Prozess auf. Dessen Inhalt ist nicht Teil dieses Dokuments.',
   },
 
-  formB: {
-    readingHelp:
-      'So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte haben durchgehende Nummern. Wechsel zwischen den Beteiligten und Entscheidungen sind Überschriften, die Fälle einer Entscheidung sind Überschriften eine Ebene tiefer. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion des Browsers wieder an die vorige Stelle.',
+  flow: {
     beginAt: (pool: string) => `Beginn bei ${pool}`,
     changeTo: (pool: string) => `Wechsel zu ${pool}`,
     unconnected: (pool: string) => `Weiterer Teil: ${pool}`,
@@ -113,7 +100,7 @@ export const de = {
     interrupting: 'Die Aufgabe wird dabei abgebrochen.',
     nonInterrupting: 'Die Aufgabe läuft weiter, zusätzlich passiert Folgendes:',
     nonInterruptingNoExit: 'Die Aufgabe läuft weiter.',
-    later: (number: number) => `Weiter ab Schritt ${number}`,
+    later: (target: string) => `Weiter ab ${target}`,
     comesFrom: 'Hierher führen: ',
     unreachable: 'Schritte ohne Weg vom Start',
     sections: {
@@ -124,17 +111,13 @@ export const de = {
   },
 
   overview: {
-    single: (steps: number, tasks: number, decisions: number) =>
+    summary: (steps: number, tasks: number, decisions: number) =>
       `Dieser Prozess hat ${plural(steps, 'Schritt', 'Schritte')}, davon ${plural(tasks, 'Aufgabe', 'Aufgaben')} und ${plural(decisions, 'Entscheidung', 'Entscheidungen')}.`,
-    multiple: (processes: number, steps: number, tasks: number, decisions: number) =>
-      `Dieses Dokument beschreibt ${processes} Prozesse mit zusammen ${plural(steps, 'Schritt', 'Schritten')}, davon ${plural(tasks, 'Aufgabe', 'Aufgaben')} und ${plural(decisions, 'Entscheidung', 'Entscheidungen')}.`,
     outcomes: 'Mögliche Ergebnisse: ',
     noOutcomes: 'Das Modell nennt kein ausdrückliches Ende.',
     readingHelp:
-      'So lesen Sie das Dokument: Jeder Schritt ist eine Überschrift der Ebene 3. Steht bei einem Schritt nichts anderes, geht es mit dem nächsten Schritt weiter. Nach einem Sprung führt die Zurück-Funktion des Browsers wieder an die vorige Stelle.',
-    roleSteps: (role: string) => `${role}: `,
-    roleNoSteps: (role: string) => `${role}: keine Aufgaben in diesem Modell`,
-    roleExternal: (role: string) => `${role}: externe Stelle, im Modell ohne eigene Schritte`,
+      'So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte sind durchgehend nummeriert. Wechsel zwischen den Beteiligten und Entscheidungen sind Überschriften, die Fälle einer Entscheidung sind Überschriften eine Ebene tiefer. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion des Browsers wieder an die vorige Stelle.',
+    roleExternal: (role: string) => `${role}, externe Stelle`,
     messageBetween: (message: string, from: string, to: string) =>
       message ? `„${message}“ von ${from} an ${to}` : `Nachricht von ${from} an ${to}`,
     generalNote: (text: string) => `Anmerkung: ${text}`,

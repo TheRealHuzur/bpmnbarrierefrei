@@ -13,8 +13,7 @@ h4,h5,h6{margin-top:1.75rem}
 :target{outline:.2rem solid currentColor;outline-offset:.4rem}
 a{text-decoration:underline;text-underline-offset:.15em}
 a:focus-visible{outline:.2rem solid currentColor;outline-offset:.15rem}
-li{margin-block:.4rem}
-ol{list-style-position:inside;padding-inline-start:0}`;
+li{margin-block:.4rem}`;
 
 // Das Dokument wird weitergegeben: Es darf nichts nachladen und nichts ausführen.
 const CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
@@ -31,26 +30,19 @@ function renderBlock(block: Block): string {
   switch (block.type) {
     case 'paragraph':
       return `<p>${renderInlines(block.content)}</p>`;
-    case 'list':
-      return renderList(block.items);
     case 'heading': {
       const id = block.anchor === undefined ? '' : ` id="s${block.anchor}"`;
       // HTML kennt nur sechs Überschriftenebenen. Tiefer verschachtelte Zweige werden hervorgehobene Absätze.
       if (block.level > 6) return `<p${id}><strong>${escapeHtml(block.text)}</strong></p>`;
       return `<h${block.level}${id}>${escapeHtml(block.text)}</h${block.level}>`;
     }
-    case 'numbered':
-      return `<ol>\n${block.items
-        .map((item) => {
-          const id = item.anchor ? ` id="s${item.number}"` : '';
-          return `<li value="${item.number}"${id}>${renderInlines(item.content)}</li>`;
-        })
-        .join('\n')}\n</ol>`;
+    case 'step':
+      return `<p id="s${block.anchor}">${renderInlines(block.content)}</p>`;
   }
 }
 
-function renderList(items: Inline[][]): string {
-  return `<ul>\n${items.map((item) => `<li>${renderInlines(item)}</li>`).join('\n')}\n</ul>`;
+function renderList(items: string[]): string {
+  return `<ul>\n${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n')}\n</ul>`;
 }
 
 export function renderHtml(document: ProcessDocument): string {
@@ -65,12 +57,7 @@ export function renderHtml(document: ProcessDocument): string {
   if (document.messages.length) {
     parts.push(`<h2>${escapeHtml(document.messagesHeading)}</h2>`, renderList(document.messages));
   }
-  for (const section of document.sections) {
-    parts.push(`<h2>${escapeHtml(section.heading)}</h2>`, ...section.blocks.map(renderBlock));
-    for (const step of section.steps) {
-      parts.push(`<h3 id="s${step.number}">${escapeHtml(step.heading)}</h3>`, ...step.blocks.map(renderBlock));
-    }
-  }
+  parts.push(`<h2>${escapeHtml(document.flowHeading)}</h2>`, ...document.flow.map(renderBlock));
 
   return `<!doctype html>
 <html lang="${escapeHtml(document.lang)}">
