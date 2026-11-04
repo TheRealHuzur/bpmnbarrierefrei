@@ -1,0 +1,107 @@
+/* Nur Systemfarben: So greifen Hell- und Dunkelmodus, hoher Kontrast und eigene Einstellungen.
+   Größen in rem: Die eingestellte Schriftgröße gilt, und der Text bricht beim Vergrößern um. */
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  background: Canvas;
+  color: CanvasText;
+  font: 1.125rem/1.6 system-ui, sans-serif;
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1rem;
+  overflow-wrap: break-word;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: 1.25;
+}
+
+h2 {
+  margin-top: 2.5rem;
+}
+
+h3,
+h4,
+h5,
+h6,
+[role='heading'] {
+  margin-top: 1.75rem;
+}
+
+[role='heading'] {
+  font-weight: bold;
+}
+
+[id] {
+  scroll-margin-top: 1rem;
+}
+
+:target {
+  outline: 0.2rem solid currentColor;
+  outline-offset: 0.4rem;
+}
+
+a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+h2:focus-visible {
+  outline: 0.2rem solid currentColor;
+  outline-offset: 0.15rem;
+}
+
+/* Die Überschrift bekommt nach der Umwandlung den Fokus. Das soll für alle sichtbar sein, auch nach Mausbedienung. */
+h2:focus {
+  outline: 0.2rem solid currentColor;
+  outline-offset: 0.4rem;
+}
+
+li {
+  margin-block: 0.4rem;
+}
+
+button,
+input {
+  font: inherit;
+  max-width: 100%;
+}
+
+button {
+  padding: 0.5rem 1rem;
+}
+
+label {
+  font-weight: bold;
+}
+
+#status:empty,
+#error:empty {
+  display: none;
+}
+
+#error {
+  border: 0.2rem solid currentColor;
+  padding: 0.75rem;
+  font-weight: bold;
+}
+
+#preview-section {
+  border-top: 0.2rem solid currentColor;
+  margin-top: 3rem;
+}
+
+footer {
+  margin-top: 3rem;
+  font-size: 1rem;
+}

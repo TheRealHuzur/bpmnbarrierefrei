@@ -1,6 +1,6 @@
 # Konzept und Plan: BPMN barrierefrei
 
-Stand: 4. November 2026. Status: Phase 1 umgesetzt, Dokumentform nach eigenen Tests gewählt, der Test mit Betroffenen steht aus.
+Stand: 4. November 2026. Status: Phasen 1 bis 4 umgesetzt, Testversion auf GitHub Pages. Offen sind der eigene Server und der Test mit Betroffenen.
 
 ## Ziel
 
@@ -28,7 +28,7 @@ Das Ergebnis ist ein Dokument, das chronologisch durch den ganzen Prozess führt
 | PDF | Vorerst über „Als PDF speichern“ aus Browser oder Word | Getaggtes PDF direkt im Browser zu erzeugen ist aufwendig; siehe Ausbaustufen |
 | Textquelle | Regeln und Vorlagen, keine KI | Reproduzierbar, prüfbar, keine Datenweitergabe, keine erfundenen Inhalte |
 | BPMN-Parser | `bpmn-moddle` (MIT) | Etablierter Parser aus dem bpmn.io-Umfeld, im Spike erfolgreich getestet |
-| DOCX-Erzeugung | `docx` (MIT) | Läuft im Browser und in Node; noch nicht getestet |
+| DOCX-Erzeugung | `docx` (MIT) | Läuft im Browser und in Node |
 | Frontend | Vite und TypeScript ohne UI-Framework | Eine schlanke Seite braucht kein Framework; weniger Abhängigkeiten |
 | Tests | Vitest, Playwright, axe-core, manuell mit NVDA | Automatik findet nur einen Teil der Barrieren; siehe Qualitätssicherung |
 
@@ -97,7 +97,7 @@ Alle Tests stammen von einem sehenden Nutzer. Das endgültige Urteil steht noch 
 
 ### Regeln für den Ablauf
 
-- **Ausgeschriebene Schritte statt Listen:** Jeder Arbeitsschritt beginnt mit „Schritt N“ und ist ein eigener Absatz. Start und Ende tragen keine Nummer, weil sie keine Arbeitsschritte sind. Ein Start, den eine Nachricht aus einem anderen Pool auslöst, zählt dagegen als Schritt, denn dort geschieht eine Übergabe.
+- **Ausgeschriebene Schritte statt Listen:** Jeder Arbeitsschritt beginnt mit „Schritt N“ und ist ein eigener Absatz. Listen erscheinen im Ablauf nur, wenn eine Beschreibung im Modell selbst eine Liste enthält. Start und Ende tragen keine Nummer, weil sie keine Arbeitsschritte sind. Ein Start, den eine Nachricht aus einem anderen Pool auslöst, zählt dagegen als Schritt, denn dort geschieht eine Übergabe.
 - **Chronologisch über alle Pools:** Nachrichtenflüsse legen fest, was zeitlich zuerst kommt. Wer eine Nachricht empfängt, steht hinter dem, der sie sendet.
 - **Schnittstellen als Überschriften:** „Beginn bei …“ und „Wechsel zu …“ markieren den Übergang zwischen Beteiligten, an der Stelle steht auch, was gesendet und empfangen wird.
 - **Zweige am Ort:** Jede Entscheidung ist eine Überschrift, ihre Fälle sind Überschriften eine Ebene tiefer, die Schritte stehen direkt darunter.
@@ -110,7 +110,9 @@ Alle Tests stammen von einem sehenden Nutzer. Das endgültige Urteil steht noch 
 - **Reihenfolge von Zweigen:** Die Position im Diagramm entscheidet, ohne Diagrammdaten die Reihenfolge der Datei.
 - **Linktexte tragen immer Kontext**, weil Screenreader Links auch als reine Liste anbieten.
 
-Technisch beruht der Ablauf auf dem Dominatorbaum des Gesamtgraphen aus Sequenz- und Nachrichtenflüssen: Ein Schritt wird dort eingeordnet, wo alle Wege zu ihm vorbeiführen. Was nicht in Blöcke passt, wird zum Sprung. Das hält das Dokument auch bei unstrukturierten Modellen vollständig, geprüft mit zufällig erzeugten Graphen mit einem und mit zwei Pools. HTML kennt nur sechs Überschriftenebenen, tiefere Zweige werden zu hervorgehobenen Absätzen.
+Technisch beruht der Ablauf auf dem Dominatorbaum des Gesamtgraphen aus Sequenz- und Nachrichtenflüssen: Ein Schritt wird dort eingeordnet, wo alle Wege zu ihm vorbeiführen. Was nicht in Blöcke passt, wird zum Sprung. Das hält das Dokument auch bei unstrukturierten Modellen vollständig, geprüft mit zufällig erzeugten Graphen mit einem und mit zwei Pools. HTML kennt nur sechs Überschriftenelemente. Tiefere Zweige bleiben über `aria-level` echte Überschriften, Word nutzt seine neun Ebenen.
+
+Die Prüfung mit fünf echten Modellen aus ProzessPilot mit zusammen 133 Elementen und 143 Flüssen ergab keinen falschen Übergang. Sie führte zu mehreren Verbesserungen: Zuständigkeit an Sprungzielen, Absätze und Listen aus mehrzeiligen Beschreibungen, Überschriften jenseits von H6, Ziele bei leeren Fällen, Formulierungen ohne technische Platzhalter und „Schreibt in“ bei Datenspeichern.
 
 Die Grenzen:
 
@@ -130,12 +132,17 @@ Die Grenzen:
 | Mehrere Prozesse in einem Modell | Ein gemeinsamer Ablauf mit Wechseln als Überschriften | 1 |
 | Grenzereignisse | Mit Art: Frist, Fehler, Nachricht; unterbrechend oder nicht | 1 |
 | Nachrichtenflüsse, Datenobjekte | Satz beim Schritt | 1 |
-| Zwischenereignisse | In Phase 1 mit Art, in Phase 2 mit eigenen Formulierungen für Warten und Auslösen | 1 und 2 |
-| Inklusive und ereignisbasierte Gateways | In Phase 1 allgemein mit Warnung, in Phase 2 mit eigenen Formulierungen | 2 |
-| Teilprozesse, Call Activities | In Phase 1 als Schritt mit Warnung, in Phase 2 als eigener Abschnitt mit Rücksprung | 2 |
-| Verbindungsereignisse (Link) | In Phase 1 mit Warnung, in Phase 2 mit Sprung zum Gegenstück | 2 |
+| Zwischenereignisse | „Wartet auf“ oder „Löst aus“ mit Art des Ereignisses | 2 |
+| Inklusive Gateways | „Mehrere dieser Wege können zutreffen“, beim Zusammenlaufen „Warten auf alle begonnenen Wege“ | 2 |
+| Ereignisbasierte Gateways | Das erste Ereignis entscheidet, die Ereignisse bilden die Fälle | 2 |
+| Komplexe Gateways | Allgemein als Verzweigung, mit Warnung, weil die Regel im Modell nicht lesbar ist | 2 |
+| Teilprozesse | Inhalt am Ort als eigener Abschnitt mit durchgehenden Nummern und klarem Abschluss, auch verschachtelt | 2 |
+| Ereignis-Teilprozesse, Ausgleichsaufgaben | Eigener Abschnitt „Sonderabläufe“ | 2 |
+| Prozessaufrufe (Call Activity) | Satz beim Schritt, Hinweis im Prüfbericht, wenn der Prozess nicht in der Datei steht | 2 |
+| Verbindungsereignisse (Link) | Über ihren Namen verbunden, Warnung, wenn das Gegenstück fehlt | 2 |
+| Wiederholungen (Schleifen, Mehrfachausführung) | Satz beim Schritt | 2 |
 
-Mehrere Prozesse, Grenzereignisse, Nachrichten und Daten kamen gegenüber dem ersten Plan schon in Phase 1 dazu. Sonst hätte das Dokument bei gängigen Modellen ganze Pools oder Abzweigungen ausgelassen.
+Herstellerfelder wie `extensionElements` stören nicht, werden aber bewusst nicht ausgewertet: Grundlage ist allein der Standard.
 
 ### Werkzeugunabhängigkeit
 
@@ -158,8 +165,9 @@ Der Kern verträgt typische Unterschiede zwischen Exporten. Das ist bisher nur m
 
 Ein Dokument kann nur so gut sein wie die Beschriftung im Modell. Sehende erschließen sich eine unbeschriftete Raute oft aus dem Bild, im Text bleibt dort eine Lücke. Deshalb zeigt die Anwendung vor dem Herunterladen einen Prüfbericht:
 
-- Fehler: nicht lesbare Datei, keine Startereignisse, nicht erreichbare Elemente.
-- Warnungen: Aufgaben ohne Namen, Entscheidungen ohne Frage, unbeschriftete Ausgänge von Entscheidungen, Parser-Warnungen.
+- Fehler, die eine Umwandlung verhindern: nicht lesbare Datei, kein Prozess im Modell, zu große Datei.
+- Warnungen: Elemente ohne Namen, unbeschriftete Ausgänge, kein Startereignis, nicht erreichbare Schritte, nicht verbundene Pools.
+- Hinweise: tote Enden, mehrere Ausgänge ohne Gateway, Prozessaufrufe außerhalb der Datei.
 
 Der Prüfbericht ist ein eigener Mehrwert des Werkzeugs: Er macht Modelle für alle besser.
 
@@ -181,7 +189,7 @@ Die Architektur vermeidet die Verarbeitung von Modellen auf dem Server, ersetzt 
 **Technisch vorgesehen:**
 
 - Keine externen Ressourcen: kein CDN, keine fremden Schriften, keine Analyse-Werkzeuge, keine Cookies.
-- Eine Content-Security-Policy, die Netzwerkzugriffe des Skripts unterbindet, etwa `default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'`. So ist nicht nur versprochen, dass die Anwendung nichts per Skript hochlädt, der Browser verhindert es auch. Ob der Download über Blob-URLs damit funktioniert, ist in Phase 3 zu testen.
+- Eine Content-Security-Policy, die Netzwerkzugriffe des Skripts unterbindet, etwa `default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'`. So ist nicht nur versprochen, dass die Anwendung nichts per Skript hochlädt, der Browser verhindert es auch. Das Herunterladen über Blob-URLs funktioniert damit, die Browsertests prüfen beides. `frame-ancestors` wirkt nur als HTTP-Header und damit erst auf dem eigenen Server.
 - Keine Speicherung im Browser, das Modell liegt nur im Arbeitsspeicher der Seite.
 - HTTPS.
 - Webserver-Protokolle ohne vollständige IP-Adressen und mit kurzer Aufbewahrung, denn der Seitenabruf selbst erzeugt weiterhin Daten.
@@ -193,8 +201,7 @@ Die Architektur vermeidet die Verarbeitung von Modellen auf dem Server, ersetzt 
 
 **Auslieferung:**
 
-- Ein Docker-Image mit einem schlanken Webserver und den statischen Dateien, passend zum Betrieb neben der DESK-Suite.
-- Wie sich das Image dort einfügt (Reverse Proxy, Domain, HTTPS), wird in Phase 5 am vorhandenen Aufbau festgelegt.
+- Testversion über GitHub Pages, Dauerbetrieb über ein Docker-Image neben der DESK-Suite. Einzelheiten stehen in [BETRIEB.md](BETRIEB.md).
 
 ## Sicherheit
 
@@ -208,7 +215,8 @@ Hochgeladene Modelle sind nicht vertrauenswürdige Eingaben. Das heruntergeladen
 
 - **Automatisch:** Snapshot-Tests für Beispielmodelle, Prüfung aller internen Links und der Überschriftenfolge, axe-core für Frontend und erzeugtes Dokument.
 - **Manuell:** NVDA unter Windows als kostenlose Basis, zusätzlich JAWS und VoiceOver, sobald verfügbar. Außerdem 400 % Zoom, Bildschirmlupe und Hochkontrast.
-- **Mit Betroffenen:** Tests mit Menschen mit Sehbehinderung sind der eigentliche Abnahmetest. Automatische Prüfungen sagen, ob ein Dokument technisch korrekt ist, nicht, ob man damit einen Prozess versteht.
+- **In der CI:** Jeder Push führt Typprüfung, Unit-Tests, Browsertests und einen Testlauf des Docker-Images aus. Nur wenn alles besteht, wird die Seite veröffentlicht.
+- **Mit Betroffenen:** Tests mit Menschen mit Sehbehinderung sind der eigentliche Abnahmetest, siehe [Leitfaden](test/TEST-MIT-BETROFFENEN.md). Automatische Prüfungen sagen, ob ein Dokument technisch korrekt ist, nicht, ob man damit einen Prozess versteht.
 
 ## Machbarkeits-Spike
 
@@ -238,49 +246,41 @@ Dieser Abschnitt beschreibt den Stand vor Phase 1. Das erste Beispieldokument st
 
 Jede Phase endet mit etwas Nutzbarem.
 
-### Phase 0: Hörprobe (läuft)
+### Phase 0: Hörprobe
 
-- Die gewählte Form mit ein bis zwei Betroffenen prüfen, siehe [Testanleitung](test/TESTANLEITUNG.md). Der eigene Test reicht dafür nicht aus.
-- Echte Modelle sammeln: mindestens je eines aus bpmnDESK, Picture und Adonis.
-- **Fertig, wenn:** Die Dokumentform ist bestätigt oder angepasst, und die Modelle liegen vor.
+- Die Dokumentform ist nach eigenen Tests gewählt. Die Bestätigung durch Betroffene folgt in Phase 6.
+- Echte Exporte aus Picture und Adonis stehen noch aus. Modelle aus ProzessPilot wurden bereits geprüft.
 
 ### Phase 1: Kern (umgesetzt)
 
-- Projektgerüst: TypeScript und Vitest, Vite kommt mit dem Frontend in Phase 3.
 - Einlesen, Analysieren, Linearisieren, HTML-Ausgabe, Kommandozeile: `npm run convert -- modell.bpmn`.
 - Abdeckung gemäß Tabelle, Sicherheitstests.
-- **Fertig, wenn:** Die Kommandozeile macht aus den Beispielmodellen korrektes HTML und alle Tests laufen.
-- **Stand:** Für das Beispielmodell und die nachgestellten Exporte erfüllt. Der Lauf mit echten Exporten und ein Durchgang mit echtem Screenreader stehen noch aus. Das Bauantrag-Dokument ergibt 0 Verstöße in axe-core 4.14, wobei der Farbkontrast von axe nicht auswertbar war, weil das Dokument bewusst keine Farben festlegt. Bei 320 Pixeln Breite gibt es kein horizontales Scrollen.
 
-### Phase 2: Volle Abdeckung und Prüfbericht
+### Phase 2: Volle Abdeckung und Prüfbericht (umgesetzt)
 
-- Restliche BPMN-Elemente gemäß Tabelle.
-- Prüfbericht verständlich für Menschen ohne BPMN-Fachwissen, etwa „Startereignis“ statt `bpmn:StartEvent`.
-- Erkenntnisse aus den echten Exporten einarbeiten.
-- **Fertig, wenn:** Echte Modelle laufen ohne Absturz durch und jedes nicht unterstützte Element wird gemeldet statt still übergangen.
+- Alle BPMN-Elemente gemäß Tabelle, Prüfbericht in verständlichen Worten.
+- **Stand:** Jedes Element erscheint im Dokument oder wird gemeldet, geprüft auch mit zufällig erzeugten, verschachtelten Modellen. Exporte aus Picture und Adonis fehlen noch.
 
-### Phase 3: Web-Frontend
+### Phase 3: Web-Frontend (umgesetzt)
 
-- Seite mit Dateiauswahl, Prüfbericht, Vorschau, Download.
-- CSP und automatische Barrierefreiheitstests.
-- **Fertig, wenn:** Der komplette Ablauf funktioniert nur mit Tastatur und NVDA, und die Netzwerkanalyse zeigt keine Übertragung des Modells.
+- Seite mit Dateiauswahl, Prüfbericht, Vorschau, Download, Sicherheitsregel und automatischen Barrierefreiheitstests.
+- **Stand:** Browsertests decken die Bedienung nur mit der Tastatur, axe-core in Hell- und Dunkelmodus, die Darstellung bei 320 Pixeln Breite und das Ausbleiben von Datenübertragungen ab. Ein Durchgang mit NVDA steht noch aus.
 
-### Phase 4: DOCX
+### Phase 4: DOCX (umgesetzt)
 
 - Zweiter Renderer auf demselben Dokumentmodell, mit echten Überschriften und internen Links.
-- **Fertig, wenn:** Überschriften und Sprünge funktionieren in Word mit NVDA.
+- **Stand:** Der Aufbau der Datei ist automatisch geprüft. Die Prüfung in echtem Word mit NVDA steht noch aus.
 
-### Phase 5: Auslieferung auf dem Server
+### Phase 5: Auslieferung (Testversion veröffentlicht)
 
-- Docker-Image, Einbindung neben der DESK-Suite, Anleitung.
-- Sicherheits-Header, Protokollierung, Impressum und Datenschutzerklärung, falls öffentlich.
-- **Fertig, wenn:** Die Anwendung läuft auf dem Server über HTTPS und der Datenschutz-Check ist erledigt.
+- Testversion auf GitHub Pages, siehe [BETRIEB.md](BETRIEB.md).
+- Docker-Image und Webserver-Konfiguration sind vorbereitet und werden in der CI gestartet und geprüft.
+- **Noch offen:** Einsatz auf dem eigenen Server neben der DESK-Suite, Impressum und Datenschutzerklärung, Datenschutz-Check.
 
-### Phase 6: Test mit Betroffenen, Version 1.0
+### Phase 6: Test mit Betroffenen, Version 1.0 (vorbereitet)
 
-- Mit blinden und mit sehbehinderten Menschen testen, die jeweils ihre eigenen Hilfsmittel nutzen.
-- Aufgaben stellen, etwa: „Wer entscheidet über den Antrag, und was passiert bei einer Ablehnung?“
-- Befunde einarbeiten, Version 1.0 veröffentlichen.
+- Mit blinden und mit sehbehinderten Menschen testen, die jeweils ihre eigenen Hilfsmittel nutzen, siehe [Leitfaden](test/TEST-MIT-BETROFFENEN.md).
+- Befunde einarbeiten, danach Version 1.0.
 - **Fertig, wenn:** Die Testpersonen können die Fragen ohne Hilfe beantworten.
 
 ### Mögliche Ausbaustufen
@@ -302,7 +302,8 @@ Jede Phase endet mit etwas Nutzbarem.
 
 ## Offene Fragen
 
-1. **Testmaterial:** Echte Exporte aus bpmnDESK, Picture und Adonis.
+1. **Testmaterial:** Echte Exporte aus Picture und Adonis.
 2. **Testpersonen:** Gibt es Menschen mit Sehbehinderung, die mittesten können?
-3. **Zugang:** Soll die Anwendung öffentlich oder geschützt erreichbar sein?
-4. **Lizenz des Repos:** Bisher ist keine festgelegt.
+3. **Zugang:** Soll die Anwendung dauerhaft öffentlich oder geschützt erreichbar sein?
+4. **Lizenz des Repos:** Das Repo ist öffentlich, bisher ist aber keine Lizenz festgelegt.
+5. **Rechtliches:** Braucht die öffentliche Testversion schon Impressum und Datenschutzerklärung?

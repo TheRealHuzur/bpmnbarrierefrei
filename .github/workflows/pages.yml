@@ -1,0 +1,77 @@
+name: Prüfen und veröffentlichen
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  pruefen:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          CI: 'true'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: seite
+          path: dist
+          retention-days: 1
+
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t bpmnbarrierefrei .
+      - name: Container starten und Sicherheitsregeln prüfen
+        run: |
+          docker run -d --name seite -p 8080:8080 bpmnbarrierefrei
+          for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsS http://127.0.0.1:8080/ >/dev/null && break; sleep 1; done
+          curl -fsS -D header.txt -o seite.html http://127.0.0.1:8080/
+          cat header.txt
+          grep -qi '^content-security-policy:.*connect-src .none.' header.txt
+          grep -qi '^content-security-policy:.*frame-ancestors .none.' header.txt
+          grep -qi '^x-content-type-options: nosniff' header.txt
+          grep -q 'BPMN barrierefrei' seite.html
+          docker logs seite 2>&1 | tail -5
+
+  veroeffentlichen:
+    needs: [pruefen, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: seite
+          path: seite
+      - name: Auf den Branch gh-pages schreiben
+        working-directory: seite
+        env:
+          REMOTE: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
+        run: |
+          touch .nojekyll
+          git init -q -b gh-pages
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -q -m "Seite aus ${GITHUB_SHA}"
+          git push -f "$REMOTE" gh-pages

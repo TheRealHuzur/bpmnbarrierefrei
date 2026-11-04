@@ -1,12 +1,12 @@
 # Testanleitung
 
-Dieser Test zeigt, ob man einen Prozess allein mit dem erzeugten Dokument versteht und ob eigene Modelle durchlaufen. Alles läuft auf deinem Rechner, es wird nichts hochgeladen. Das Web-Frontend gibt es noch nicht, es folgt in Phase 3.
+Dieser Test zeigt, ob man einen Prozess allein mit dem erzeugten Dokument versteht und ob eigene Modelle durchlaufen. Die Testversion läuft unter <https://therealhuzur.github.io/bpmnbarrierefrei/>. Die Umwandlung passiert im Browser, es wird nichts hochgeladen.
 
-**Am aussagekräftigsten ist Test 1 mit jemandem, der täglich mit Screenreader oder Vergrößerung arbeitet.** 20 Minuten genügen.
+**Am aussagekräftigsten ist Test 1 mit jemandem, der täglich mit Screenreader oder Vergrößerung arbeitet.** Dafür gibt es einen eigenen [Leitfaden](TEST-MIT-BETROFFENEN.md).
 
 ## Test 1: Einen Prozess verstehen
 
-Öffne [bauantrag.html](bauantrag.html) mit Doppelklick im Browser. Schau dabei möglichst nicht in die Lösungen und nimm das übliche Hilfsmittel, also Screenreader oder Vergrößerung.
+Öffne die Testversion und wähle „Beispiel Bauantrag umwandeln“. Schau dabei möglichst nicht in die Lösungen und nimm das übliche Hilfsmittel, also Screenreader oder Vergrößerung.
 
 Versuche, diese Fragen nur mit dem Dokument zu beantworten:
 
@@ -67,13 +67,12 @@ Prüfe dabei:
 
 ## Test 4: Eigene Modelle
 
-Das ist der wichtigste Test, denn bisher lief das Programm vor allem mit nachgestellten Exporten.
+Das ist der wichtigste Test, denn jedes Werkzeug exportiert etwas anders.
 
 1. Exportiere ein Modell als BPMN 2.0 XML, am besten je eines aus bpmnDESK, Picture und Adonis, auch ein komplexeres.
-2. Ziehe die Datei im Explorer auf `bpmn-testen.cmd` im Projektordner `C:\dev\bpmnbarrierefrei`.
-3. Das Dokument öffnet sich im Browser, das schwarze Fenster zeigt den Prüfbericht.
+2. Wähle die Datei in der Testversion aus. Das Ergebnis erscheint darunter, mit Prüfbericht, Vorschau und Links zum Herunterladen.
 
-Die HTML-Datei entsteht neben dem Modell und trägt denselben Namen. Eine vorhandene Datei gleichen Namens wird überschrieben.
+Die Datei wird dabei nicht hochgeladen, die Umwandlung läuft nur in deinem Browser. Wer es ganz lokal möchte, zieht die Datei auf `bpmn-testen.cmd` im Projektordner.
 
 Prüfe dabei:
 
@@ -84,25 +83,27 @@ Prüfe dabei:
 
 ## Test 5: Der Prüfbericht
 
-Ziehe [mit-absichtlichen-fehlern.bpmn](mit-absichtlichen-fehlern.bpmn) auf `bpmn-testen.cmd`. Das Modell enthält bewusst Fehler, das Fenster soll 11 Befunde zeigen:
+Wähle [mit-absichtlichen-fehlern.bpmn](mit-absichtlichen-fehlern.bpmn) aus. Das Modell enthält bewusst Fehler, der Prüfbericht soll 6 Warnungen und 4 Hinweise nennen:
 
 - Elemente ohne Namen und Entscheidungen mit unbeschrifteten Ausgängen.
-- Eine Aufgabe ohne Fortsetzung und eine ohne jede Verbindung.
-- Einen Teilprozess und ein inklusives Gateway, die noch nicht vollständig beschrieben werden.
+- Aufgaben ohne Fortsetzung und eine ohne jede Verbindung.
 
-Im Dokument darf keines der Elemente fehlen.
+Im Dokument darf keines der Elemente fehlen, auch nicht der Inhalt des Teilprozesses.
+
+## Test 6: Das Word-Dokument
+
+Lade das Dokument als Word-Datei herunter und öffne es. Springe im Navigationsbereich oder mit dem Screenreader über die Überschriften und folge dem Link „Schritt 3“. Dieser Test wurde bisher nur automatisch am Aufbau der Datei gemacht, nicht in Word mit Screenreader.
 
 ## Was noch nicht geht
 
-- Der Inhalt von Teilprozessen und aufgerufenen Prozessen fehlt im Dokument, der Prüfbericht meldet das.
-- Inklusive und ereignisbasierte Gateways werden nur allgemein beschrieben.
-- Verbindungsereignisse (Link) werden noch nicht mit ihrem Gegenstück verknüpft.
-- Der Prüfbericht nennt technische Typen wie `bpmn:StartEvent` und steht nur im Fenster, nicht im Dokument.
+- Der Inhalt aufgerufener Prozesse fehlt im Dokument, wenn sie nicht in derselben Datei stehen. Der Prüfbericht meldet das.
+- Bei komplexen Gateways ist die Regel im Modell nicht lesbar, sie werden nur allgemein beschrieben. Auch das meldet der Prüfbericht.
+- Herstellerfelder, etwa die Arbeitshilfen aus ProzessPilot, erscheinen nicht im Dokument, weil nur der BPMN-Standard ausgewertet wird.
+- Ein PDF gibt es nur über „Als PDF speichern“ aus Browser oder Word. Ob es dabei barrierefrei bleibt, ist nicht geprüft.
 - Die zeitliche Reihenfolge ergibt sich aus Sequenz- und Nachrichtenflüssen. Pools ohne Nachrichtenfluss zu einzelnen Schritten lassen sich nicht einordnen, das Dokument sagt das dann ausdrücklich. Laufen Wege gleichzeitig, müssen sie im Text trotzdem nacheinander stehen.
 - Wechsel innerhalb eines Pools, also zwischen Lanes, erscheinen als „Zuständig: …“ beim Schritt und nicht als Überschrift.
 - Nach einer Entscheidung läuft der Zweig mit den meisten Schritten ohne Einrückung weiter. Das muss nicht der fachliche Normalfall sein.
 - Unsauber modellierte Prozesse lassen sich nicht immer verschachteln, dort bleiben einzelne Sprünge.
-- Es gibt noch kein DOCX und kein PDF.
 
 ## Rückmeldung
 
@@ -111,4 +112,4 @@ Für mich sind diese Punkte am wichtigsten, Stichworte reichen:
 1. Welche Fragen aus Test 1 waren schwer oder nicht lösbar?
 2. Was hat beim Hören oder Vergrößern gestört?
 3. Welche Formulierungen klingen falsch?
-4. Welche eigenen Modelle liefen, welche nicht? Bei Fehlern hilft die Meldung aus dem Fenster und, falls möglich, die Datei.
+4. Welche eigenen Modelle liefen, welche nicht? Bei Fehlern hilft die angezeigte Meldung und, falls möglich, die Datei.

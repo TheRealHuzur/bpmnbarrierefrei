@@ -16,6 +16,7 @@ export type StepKind =
   | 'join-split'
   | 'merge'
   | 'branch'
+  | 'event-branch'
   | 'other';
 
 export interface Exit {
@@ -43,6 +44,12 @@ export interface GraphNode {
   entries: GraphNode[];
   /** Vom Start aus führt kein Weg hierher. */
   unreachable: boolean;
+  /** Der Inhalt eines Teilprozesses. */
+  child?: ProcessGraph;
+  /** Läuft außerhalb des normalen Ablaufs: Ereignis-Teilprozess oder Ausgleichsaufgabe. */
+  special?: boolean;
+  /** Name des aufgerufenen Prozesses, falls er in diesem Modell steht. */
+  calledName?: string;
   /** Sichtbare Schrittnummer. 0 bei Start und Ende, die keine Arbeitsschritte sind. */
   number: number;
   /** Eindeutiges Sprungziel, das auch Start und Ende haben. */
@@ -65,7 +72,11 @@ export type Position = { x: number; y: number };
 export interface AnalyzeContext {
   positions: Map<string, Position>;
   poolName?: string;
+  /** Namen aller Prozesse im Modell, für Aufrufe anderer Prozesse. */
+  processNames: Map<string, string>;
   addFinding(finding: Finding): void;
+  /** Nur innerhalb von Teilprozessen: was vom umgebenden Schritt übernommen wird. */
+  parent?: { pool?: string; role?: string };
 }
 
 const ROLE_KINDS: ReadonlySet<StepKind> = new Set(['task', 'subprocess', 'decision', 'branch']);
@@ -160,21 +171,27 @@ function kindOf(element: BpmnElement, inCount: number, outCount: number): StepKi
     if (inCount > 1 && outCount > 1) return 'join-split';
     return inCount > 1 ? 'join' : 'split';
   }
+  if (is('bpmn:InclusiveGateway') && inCount > 1 && outCount <= 1) return 'join';
+  if (is('bpmn:EventBasedGateway')) return 'event-branch';
   if (is('bpmn:Gateway')) return 'branch';
   if (is('bpmn:SubProcess') || is('bpmn:CallActivity')) return 'subprocess';
   if (is('bpmn:Activity')) return 'task';
   return 'other';
 }
 
-function generatedLabel(kind: StepKind, outCount: number): string | undefined {
+function generatedLabel(kind: StepKind, outCount: number, element: BpmnElement): string | undefined {
   if (kind === 'split') return de.labels.split(outCount);
-  if (kind === 'join') return de.labels.join;
+  if (kind === 'join') return element.$instanceOf('bpmn:InclusiveGateway') ? de.labels.inclusiveJoin : de.labels.join;
   if (kind === 'join-split') return de.labels.joinSplit(outCount);
+  if (kind === 'event-branch') return de.labels.eventBranch;
   return undefined;
 }
 
+const linkNameOf = (element: BpmnElement): string =>
+  clean(list(element.eventDefinitions).find((definition) => definition.$instanceOf('bpmn:LinkEventDefinition'))?.name);
+
 export function analyzeProcess(process: BpmnElement, context: AnalyzeContext): ProcessGraph {
-  const { positions, poolName, addFinding } = context;
+  const { positions, poolName, processNames, addFinding, parent } = context;
   const flowElements = list(process.flowElements);
   const elements = flowElements.filter((element) => element.$instanceOf('bpmn:FlowNode'));
   const elementSet = new Set(elements);
@@ -205,11 +222,12 @@ export function analyzeProcess(process: BpmnElement, context: AnalyzeContext): P
     const outCount = outgoing.get(element)!.length;
     const kind = kindOf(element, inCount, outCount);
     const name = clean(element.name);
-    const generated = name ? undefined : generatedLabel(kind, outCount);
+    const generated = name ? undefined : generatedLabel(kind, outCount, element);
     const node: GraphNode = {
       element,
       kind,
-      label: name || generated || de.labels.unnamed,
+      // Eine Entscheidung ohne Namen bleibt eine Entscheidung. Die Lücke meldet der Prüfbericht, nicht der Lesetext.
+      label: name || generated || (kind === 'decision' ? de.kinds.decision : de.labels.unnamed),
       labelIsGenerated: Boolean(generated),
       exits: [],
       boundaries: [],
@@ -218,10 +236,21 @@ export function analyzeProcess(process: BpmnElement, context: AnalyzeContext): P
       number: 0,
       anchor: 0,
     };
-    const role = laneOf.get(element) ?? poolName;
+    const role = laneOf.get(element) ?? parent?.role ?? poolName;
     if (role && hasRole(kind)) node.role = role;
-    const pool = poolName ?? clean(process.name);
+    const pool = parent ? parent.pool : (poolName ?? clean(process.name));
     if (pool) node.pool = pool;
+    if (element.triggeredByEvent || element.isForCompensation) node.special = true;
+    const calledName = element.calledElement ? processNames.get(element.calledElement) : undefined;
+    if (calledName) node.calledName = calledName;
+    if (element.$instanceOf('bpmn:SubProcess') && list(element.flowElements).some((child) => child.$instanceOf('bpmn:FlowNode'))) {
+      node.child = analyzeProcess(element, {
+        positions,
+        processNames,
+        addFinding,
+        parent: { ...(pool ? { pool } : {}), ...(role ? { role } : {}) },
+      });
+    }
     nodes.push(node);
     nodeOf.set(element, node);
   }
@@ -241,15 +270,32 @@ export function analyzeProcess(process: BpmnElement, context: AnalyzeContext): P
   const toExit = (source: BpmnElement, flow: BpmnElement): Exit => {
     const condition = clean(flow.conditionExpression?.body);
     const isDefault = flow === source.default;
-    return {
-      target: resolve(flow.targetRef),
-      label: clean(flow.name) || condition || (isDefault ? de.labels.defaultExit : de.labels.unlabeledExit),
-      conditional: Boolean(condition) || isDefault,
-    };
+    const target = resolve(flow.targetRef);
+    // Bei einem ereignisbasierten Gateway nennt das Ereignis selbst den Fall.
+    const fallback = source.$instanceOf('bpmn:EventBasedGateway')
+      ? target.label
+      : isDefault
+        ? de.labels.defaultExit
+        : de.labels.unlabeledExit;
+    return { target, label: clean(flow.name) || condition || fallback, conditional: Boolean(condition) || isDefault };
   };
 
   for (const node of nodes) {
     node.exits = sortedFlows(node.element).map((flow) => toExit(node.element, flow));
+  }
+
+  // Verbindungsereignisse sind Sprünge über Seitengrenzen: Das Paar gehört über seinen Namen zusammen.
+  const linkedThrows = new Set<BpmnElement>();
+  const linkedCatches = new Set<BpmnElement>();
+  for (const node of nodes.filter((candidate) => isLinkThrow(candidate.element) && !candidate.exits.length)) {
+    const name = linkNameOf(node.element);
+    const target = nodes.find(
+      (candidate) => isLinkEvent(candidate.element) && !isLinkThrow(candidate.element) && linkNameOf(candidate.element) === name,
+    );
+    if (!name || !target) continue;
+    node.exits = [{ target, label: de.labels.unlabeledExit, conditional: false }];
+    linkedThrows.add(node.element);
+    linkedCatches.add(target.element);
   }
   for (const element of elements.filter(isAttached)) {
     const host = nodeOf.get(element.attachedToRef);
@@ -269,20 +315,25 @@ export function analyzeProcess(process: BpmnElement, context: AnalyzeContext): P
     (node) => node.element,
     positions,
   );
-  const firstNodes = startNodes.length ? startNodes : nodes.filter((node) => node.entries.length === 0);
-  if (!startNodes.length) {
+  const firstNodes = startNodes.length ? startNodes : nodes.filter((node) => node.entries.length === 0 && !node.special);
+  // Teilprozesse dürfen ohne Startereignis auskommen.
+  if (!startNodes.length && !parent) {
     addFinding({ severity: 'warning', code: 'no-start', message: de.findings.noStart(clean(process.name)), elementId: process.id });
   }
 
   const seen = new Set<GraphNode>();
-  const ordered = reversePostorder(firstNodes.length ? firstNodes : nodes.slice(0, 1), successors, seen);
+  const regular = nodes.filter((node) => !node.special);
+  const ordered = reversePostorder(firstNodes.length ? firstNodes : regular.slice(0, 1), successors, seen);
 
   // Nichts geht verloren: Was vom Start aus nicht erreichbar ist, steht am Ende.
   let rest = nodes.filter((node) => !seen.has(node));
   while (rest.length) {
-    const orphans = rest.filter((node) => node.entries.every((entry) => entry === node));
-    const group = reversePostorder(orphans.length ? orphans : rest.slice(0, 1), successors, seen);
+    const specials = rest.filter((node) => node.special);
+    const orphans = rest.filter((node) => node.entries.every((entry) => entry === node) && !node.special);
+    const roots = orphans.length ? orphans : specials.length && specials.length === rest.length ? specials : rest.filter((node) => !node.special).slice(0, 1);
+    const group = reversePostorder(roots, successors, seen);
     for (const node of group) {
+      if (node.special) continue;
       node.unreachable = true;
       addFinding({ severity: 'warning', code: 'unreachable', message: de.findings.unreachable(node.label), elementId: node.element.id });
     }
@@ -290,7 +341,15 @@ export function analyzeProcess(process: BpmnElement, context: AnalyzeContext): P
     rest = rest.filter((node) => !seen.has(node));
   }
 
-  for (const element of elements) reportElement(element, nodeOf.get(element), isAttached(element), outgoing.get(element)!, addFinding);
+  const endNames = nodes.filter((node) => node.kind === 'end' && clean(node.element.name)).map((node) => node.label);
+  for (const name of new Set(endNames.filter((name, index) => endNames.indexOf(name) !== index))) {
+    addFinding({ severity: 'warning', code: 'duplicate-end', message: de.findings.duplicateEnd(name) });
+  }
+
+  for (const element of elements) {
+    const linked = linkedThrows.has(element) || linkedCatches.has(element);
+    reportElement(element, nodeOf.get(element), isAttached(element), outgoing.get(element)!, linked, addFinding);
+  }
 
   const title = clean(process.name) || poolName;
   return { process, ...(title ? { title } : {}), ...(poolName ? { poolName } : {}), nodes: ordered, roles, nodeOf };
@@ -301,24 +360,26 @@ function reportElement(
   node: GraphNode | undefined,
   attached: boolean,
   flows: BpmnElement[],
+  linked: boolean,
   addFinding: (finding: Finding) => void,
 ): void {
   const id: string = element.id;
   const name = clean(element.name);
+  const typeName = de.elementType(element.$type);
   if (attached) {
-    if (!name) addFinding({ severity: 'info', code: 'missing-name', message: de.findings.missingName(element.$type, id), elementId: id });
+    if (!name) addFinding({ severity: 'info', code: 'missing-name', message: de.findings.missingName(typeName, id), elementId: id });
     return;
   }
   if (!node) return;
 
   if (!name && !node.labelIsGenerated) {
     const severity = node.kind === 'start' || node.kind === 'event' ? 'info' : 'warning';
-    addFinding({ severity, code: 'missing-name', message: de.findings.missingName(element.$type, id), elementId: id });
+    addFinding({ severity, code: 'missing-name', message: de.findings.missingName(typeName, id), elementId: id });
   }
   if (node.kind === 'decision' || node.kind === 'branch') {
     for (const flow of flows) {
       if (!clean(flow.name) && flow !== element.default) {
-        addFinding({ severity: 'warning', code: 'unlabeled-exit', message: de.findings.unlabeledExit(flow.id, node.label), elementId: flow.id });
+        addFinding({ severity: 'warning', code: 'unlabeled-exit', message: de.findings.unlabeledExit(flow.id, name ? `„${name}“` : `der ${de.kinds.decision} (ID ${id})`), elementId: flow.id });
       }
     }
   }
@@ -327,17 +388,17 @@ function reportElement(
       addFinding({ severity: 'info', code: 'implicit-split', message: de.findings.implicitSplit(node.label), elementId: id });
     }
   }
-  if (flows.length === 0 && node.kind !== 'end' && !isLinkThrow(element)) {
+  if (flows.length === 0 && node.kind !== 'end' && !node.special && !isLinkThrow(element)) {
     addFinding({ severity: 'info', code: 'dead-end', message: de.findings.deadEnd(node.label), elementId: id });
   }
-  if (node.kind === 'branch' || node.kind === 'other') {
-    addFinding({ severity: 'warning', code: 'unsupported', message: de.findings.unsupportedGateway(node.label, element.$type), elementId: id });
+  if (element.$instanceOf('bpmn:ComplexGateway') || node.kind === 'other') {
+    addFinding({ severity: 'warning', code: 'unsupported', message: de.findings.unsupportedGateway(node.label), elementId: id });
   }
-  if (node.kind === 'subprocess') {
-    addFinding({ severity: 'warning', code: 'unsupported', message: de.findings.unsupportedSubprocess(node.label), elementId: id });
+  if (element.$instanceOf('bpmn:CallActivity') && !node.calledName) {
+    addFinding({ severity: 'info', code: 'unsupported', message: de.findings.externalCall(node.label), elementId: id });
   }
-  if (isLinkEvent(element)) {
-    addFinding({ severity: 'warning', code: 'unsupported', message: de.findings.unsupportedLink(node.label), elementId: id });
+  if (isLinkEvent(element) && !linked) {
+    addFinding({ severity: 'warning', code: 'unsupported', message: de.findings.unlinkedEvent(node.label), elementId: id });
   }
 }
 

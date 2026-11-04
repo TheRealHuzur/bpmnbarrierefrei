@@ -2,16 +2,21 @@ import { hasRole, isTaskLike, type BoundaryInfo, type GraphNode, type ProcessGra
 import type { Block, Inline, ProcessDocument, StepRef } from './document.ts';
 import type { BpmnElement } from './parse.ts';
 import type { Branch, Item, Jump, ModelPlan } from './structure.ts';
-import { clean, plainText } from './text.ts';
+import { clean, plainLines, plainText } from './text.ts';
 import { de } from './texts.de.ts';
 
 const TOP_LEVEL = 3;
 
 const list = (value: unknown): BpmnElement[] => (Array.isArray(value) ? value : []);
 
+/** „Ende: Ende“ wäre nur ein Stottern. */
+const repeatsKind = (node: GraphNode): boolean => node.label.toLowerCase() === de.kinds[node.kind].toLowerCase();
+
 /** So wird ein Schritt genannt, wenn von anderswo auf ihn verwiesen wird. */
-export const refText = (node: GraphNode): string =>
-  node.number ? de.steps.ref(node.number, node.label) : `${de.kinds[node.kind]}: ${node.label}`;
+export const refText = (node: GraphNode): string => {
+  if (node.number) return de.steps.ref(node.number, node.label);
+  return repeatsKind(node) ? node.label : `${de.kinds[node.kind]}: ${node.label}`;
+};
 
 const ref = (node: GraphNode): StepRef => ({ step: node.anchor, text: refText(node) });
 
@@ -23,7 +28,7 @@ const inlineText = (inline: Inline): string => {
 /** Schließt einen Satz ab, ohne „genehmigt?.“ zu erzeugen. */
 function sentence(...content: Inline[]): Block {
   const last = content.at(-1);
-  const needsStop = last !== undefined && !/[.?!:]$/.test(inlineText(last).trim());
+  const needsStop = last !== undefined && !/[.?!:;,\-–—]$/.test(inlineText(last).trim());
   return { type: 'paragraph', content: needsStop ? [...content, '.'] : content };
 }
 
@@ -47,33 +52,81 @@ function eventKindOf(element: BpmnElement): string | undefined {
   return definition ? (de.eventKinds[definition.$type] ?? de.genericEventKind) : undefined;
 }
 
-function dataNames(associations: unknown, pick: (association: BpmnElement) => unknown): string[] {
+/** Beschreibungen können lang sein: Eine Zeile bleibt beim Schritt, mehrere werden zu eigenen Absätzen und Listen. */
+function documentationParts(element: BpmnElement): { inline: Block[]; separate: Block[] } {
+  const lines = list(element.documentation).flatMap((doc) => plainLines(doc.text, doc.textFormat));
+  const isItem = (line: string): boolean => /^[-–•*]\s/.test(line);
+  const [only] = lines;
+  if (lines.length === 1 && only && !isItem(only)) return { inline: [sentence(only)], separate: [] };
+
+  const separate: Block[] = [];
+  for (const line of lines) {
+    if (!isItem(line)) {
+      separate.push({ type: 'paragraph', content: [line] });
+      continue;
+    }
+    const item = line.replace(/^[-–•*]\s+/, '');
+    const last = separate.at(-1);
+    if (last?.type === 'list') last.items.push(item);
+    else separate.push({ type: 'list', items: [item] });
+  }
+  return { inline: [], separate };
+}
+
+function dataNames(associations: unknown, pick: (association: BpmnElement) => unknown, stores: boolean): string[] {
   const names = list(associations).flatMap((association) => {
     const picked = pick(association);
-    return (Array.isArray(picked) ? picked : [picked]).map((item: BpmnElement | undefined) =>
-      clean(item?.name) || clean(item?.dataObjectRef?.name),
-    );
+    return (Array.isArray(picked) ? picked : [picked])
+      .filter((item: BpmnElement | undefined) => Boolean(item?.$instanceOf?.('bpmn:DataStoreReference')) === stores)
+      .map((item: BpmnElement | undefined) => clean(item?.name) || clean(item?.dataObjectRef?.name));
   });
   return [...new Set(names.filter(Boolean))];
+}
+
+function eventSentence(element: BpmnElement): Block | undefined {
+  const eventKind = eventKindOf(element);
+  // Ein Verbindungsereignis ist nur ein Sprung im Diagramm, dazu gibt es nichts zu sagen.
+  if (!eventKind || eventKind === de.eventKinds['bpmn:LinkEventDefinition']) return undefined;
+  if (element.$instanceOf('bpmn:IntermediateCatchEvent')) return sentence(de.steps.waitsFor(eventKind));
+  if (element.$instanceOf('bpmn:IntermediateThrowEvent')) return sentence(de.steps.triggers(eventKind));
+  if (element.$instanceOf('bpmn:StartEvent')) return sentence(de.steps.trigger(eventKind));
+  return sentence(de.steps.eventKind(eventKind));
+}
+
+function loopSentence(element: BpmnElement): Block | undefined {
+  const loop = element.loopCharacteristics;
+  if (!loop) return undefined;
+  if (loop.$instanceOf('bpmn:MultiInstanceLoopCharacteristics')) {
+    return sentence(loop.isSequential ? de.steps.loopSequential : de.steps.loopParallel);
+  }
+  return sentence(de.steps.loopStandard);
 }
 
 function detailBlocks(node: GraphNode, showEventKind: boolean): Block[] {
   const { element } = node;
   const blocks: Block[] = [];
   if (showEventKind && element.$instanceOf('bpmn:Event') && node.kind !== 'other') {
-    const eventKind = eventKindOf(element);
-    if (eventKind) blocks.push(sentence(de.steps.eventKind(eventKind)));
+    const event = eventSentence(element);
+    if (event) blocks.push(event);
   }
+  if (element.triggeredByEvent) blocks.push(sentence(de.steps.eventSubprocess));
+  if (element.isForCompensation) blocks.push(sentence(de.steps.compensation));
+  if (element.$instanceOf('bpmn:AdHocSubProcess')) blocks.push(sentence(de.steps.adHoc));
   if (element.$instanceOf('bpmn:CallActivity')) {
-    blocks.push(sentence(de.steps.callActivity(clean(element.calledElement))));
-  } else if (node.kind === 'subprocess') {
-    const count = list(element.flowElements).filter((child) => child.$instanceOf('bpmn:FlowNode')).length;
-    if (count) blocks.push(sentence(de.steps.subprocessContent(count)));
+    blocks.push(sentence(node.calledName ? de.steps.callInternal(node.calledName) : de.steps.callActivity(clean(element.calledElement))));
   }
-  const produces = dataNames(element.dataOutputAssociations, (association) => association.targetRef);
-  if (produces.length) blocks.push(sentence(de.steps.produces(produces.join(', '))));
-  const needs = dataNames(element.dataInputAssociations, (association) => association.sourceRef);
-  if (needs.length) blocks.push(sentence(de.steps.needs(needs.join(', '))));
+  const loop = loopSentence(element);
+  if (loop) blocks.push(loop);
+  const outputs = (association: BpmnElement): unknown => association.targetRef;
+  const inputs = (association: BpmnElement): unknown => association.sourceRef;
+  const add = (names: string[], text: (joined: string) => string): void => {
+    if (names.length) blocks.push(sentence(text(names.join(', '))));
+  };
+  // Ein Datenspeicher besteht schon: Die Aufgabe schreibt hinein, sie erzeugt ihn nicht.
+  add(dataNames(element.dataOutputAssociations, outputs, false), de.steps.produces);
+  add(dataNames(element.dataOutputAssociations, outputs, true), de.steps.writes);
+  add(dataNames(element.dataInputAssociations, inputs, false), de.steps.needs);
+  add(dataNames(element.dataInputAssociations, inputs, true), de.steps.reads);
   return blocks;
 }
 
@@ -88,7 +141,7 @@ const opensWithHeading = (item: Item | undefined): boolean =>
 
 /** Der vollständige Titel eines Schritts: „Schritt 3: …“, bei Besonderheiten mit deren Art. */
 const stepTitle = (node: GraphNode): string => {
-  if (!node.number || node.kind === 'task' || node.labelIsGenerated) return refText(node);
+  if (!node.number || node.kind === 'task' || node.labelIsGenerated || repeatsKind(node)) return refText(node);
   return de.steps.heading(node.number, de.kinds[node.kind], node.label);
 };
 
@@ -96,6 +149,7 @@ function branchTitle(node: GraphNode, branch: Branch, index: number, parallel: b
   if (parallel) return de.flow.way(index + 1);
   if (branch.label === de.labels.defaultExit) return branch.label;
   if (branch.label === de.labels.unlabeledExit) return de.flow.unlabeledCase;
+  if (node.kind === 'event-branch') return de.flow.firstEvent(branch.label);
   return node.kind === 'branch' ? de.flow.wayLabeled(branch.label) : de.flow.caseLabeled(branch.label);
 }
 
@@ -103,6 +157,33 @@ const nodeOfItem = (item: Item): GraphNode | undefined => {
   if (item.type === 'section' || item.type === 'side' || item.type === 'unconnected') return undefined;
   return item.node;
 };
+
+/** Schritte, zu denen ein Link springt: Wer dort landet, hat die vorige Zuständigkeit nicht gehört. */
+function collectJumpTargets(items: Item[], targets = new Set<GraphNode>()): Set<GraphNode> {
+  for (const item of items) {
+    if ('jump' in item && item.jump) targets.add(item.jump.target);
+    if (item.type === 'side') {
+      for (const jump of item.jumps) targets.add(jump.target);
+      collectJumpTargets(item.body, targets);
+    }
+    if (item.type === 'subprocess') {
+      collectJumpTargets(item.body, targets);
+      collectJumpTargets(item.detached, targets);
+    }
+    if (item.type === 'choice' || item.type === 'parallel') {
+      for (const branch of item.branches) {
+        if (branch.jump) targets.add(branch.jump.target);
+        if (branch.fallsTo) targets.add(branch.fallsTo);
+        collectJumpTargets(branch.body, targets);
+      }
+    }
+  }
+  return targets;
+}
+
+/** Alle Schritte einschließlich der Inhalte von Teilprozessen. */
+const allNodesOf = (graphs: ProcessGraph[]): GraphNode[] =>
+  graphs.flatMap((graph) => graph.nodes.flatMap((node) => [node, ...(node.child ? allNodesOf([node.child]) : [])]));
 
 export interface StepAttachments {
   notes: string[];
@@ -114,16 +195,23 @@ class SequenceWriter {
   private lastPool: string | undefined;
   private readonly attachments: Map<GraphNode, StepAttachments>;
   private readonly showPools: boolean;
+  private readonly jumpTargets: Set<GraphNode>;
 
-  constructor(attachments: Map<GraphNode, StepAttachments>, showPools: boolean) {
+  constructor(attachments: Map<GraphNode, StepAttachments>, showPools: boolean, jumpTargets: Set<GraphNode>) {
     this.attachments = attachments;
     this.showPools = showPools;
+    this.jumpTargets = jumpTargets;
+  }
+
+  /** Bei Überschriften stehen Beschreibungen einfach als Absätze darunter. */
+  private documentation(node: GraphNode): Block[] {
+    const { inline, separate } = documentationParts(node.element);
+    return [...inline, ...separate];
   }
 
   private details(node: GraphNode): Block[] {
     const attachment = this.attachments.get(node);
     const blocks: Block[] = [];
-    for (const doc of documentationOf(node.element)) blocks.push(sentence(doc));
     for (const note of attachment?.notes ?? []) blocks.push(sentence(de.steps.note(note)));
     // „Empfängt …“ sagt schon, dass eine Nachricht der Auslöser ist.
     const receivesMessage = Boolean(attachment?.messages.length) && eventKindOf(node.element) === de.eventKinds['bpmn:MessageEventDefinition'];
@@ -133,9 +221,10 @@ class SequenceWriter {
     return blocks;
   }
 
-  /** Die Zuständigkeit wird nur genannt, wenn sie wechselt, und nach jeder Überschrift neu. */
+  /** Die Zuständigkeit wird genannt, wenn sie wechselt, nach jeder Überschrift und bei jedem Sprungziel. */
   private role(node: GraphNode): Block[] {
-    if (!node.role || !hasRole(node.kind) || node.role === this.lastRole) return [];
+    if (!node.role || !hasRole(node.kind)) return [];
+    if (node.role === this.lastRole && !this.jumpTargets.has(node)) return [];
     this.lastRole = node.role;
     return [sentence(de.steps.role(node.role))];
   }
@@ -145,9 +234,11 @@ class SequenceWriter {
     return { type: 'heading', level, text, ...(anchor === undefined ? {} : { anchor }) };
   }
 
-  private stepBlock(node: GraphNode, jump: Jump | undefined): Block {
+  private stepBlocks(node: GraphNode, jump: Jump | undefined): Block[] {
     const title = stepTitle(node);
-    const blocks: Block[] = [...this.role(node), ...this.details(node)];
+    const { inline, separate } = documentationParts(node.element);
+    const before: Block[] = [...this.role(node), ...inline];
+    const blocks: Block[] = this.details(node);
     if (node.kind === 'end') {
       const terminates = list(node.element.eventDefinitions).some((definition) =>
         definition.$instanceOf('bpmn:TerminateEventDefinition'),
@@ -158,8 +249,10 @@ class SequenceWriter {
     }
     if (jump) blocks.push(jumpSentence(jump, true));
     const strong = /[.?!:]$/.test(title) ? title : `${title}.`;
-    const rest = toInlines(blocks);
-    return { type: 'step', anchor: node.anchor, content: [{ strong }, ...(rest.length ? [' ', ...rest] : [])] };
+    const step = (rest: Inline[]): Block => ({ type: 'step', anchor: node.anchor, content: [{ strong }, ...(rest.length ? [' ', ...rest] : [])] });
+    if (!separate.length) return [step(toInlines([...before, ...blocks]))];
+    const after = toInlines(blocks);
+    return [step(toInlines(before)), ...separate, ...(after.length ? [{ type: 'paragraph', content: after } as Block] : [])];
   }
 
   private side({ element, exits }: BoundaryInfo, body: Item[], jumps: Jump[], level: number): Block[] {
@@ -168,6 +261,11 @@ class SequenceWriter {
     const out: Block[] = [this.heading(level, de.flow.sideCase(kind, clean(element.name)))];
     const texts = documentationOf(element).map((doc) => sentence(doc));
     const hasWayOn = exits.length > 0;
+    // Eine Kompensation unterbricht nichts: Sie verweist auf den Ausgleich, falls die Aufgabe später rückgängig gemacht wird.
+    if (kind === de.eventKinds['bpmn:CompensateEventDefinition']) {
+      out.push(sentence(de.flow.compensationHint), ...texts);
+      return out;
+    }
     out.push(sentence(interrupting ? de.flow.interrupting : hasWayOn ? de.flow.nonInterrupting : de.flow.nonInterruptingNoExit), ...texts);
     if (interrupting && !hasWayOn) out.push(sentence(de.steps.deadEnd));
     out.push(...this.write(body, level + 1), ...jumps.map((jump) => jumpSentence(jump)));
@@ -182,7 +280,11 @@ class SequenceWriter {
       if (branch.continues) return nextIsStep ? out : [...out, sentence(de.flow.continuesHere)];
       out.push(...this.write(branch.body, level + 1));
       if (branch.jump) out.push(jumpSentence(branch.jump));
-      else if (branch.body.length === 0) out.push(sentence(de.flow.noOwnStep));
+      if (branch.fallsTo) {
+        // Beim letzten Fall folgt das Ziel direkt darunter, sonst überspringt man die anderen Fälle: Das ist ein echter Sprung.
+        const isLast = index === branches.length - 1;
+        out.push(sentence(de.flow.noOwnStepTo, isLast ? refText(branch.fallsTo) : ref(branch.fallsTo)));
+      }
       return out;
     });
   }
@@ -204,19 +306,34 @@ class SequenceWriter {
       out.push(...this.poolChange(item, level));
       switch (item.type) {
         case 'step':
-          out.push(this.stepBlock(item.node, item.jump));
+          out.push(...this.stepBlocks(item.node, item.jump));
           break;
+        case 'subprocess': {
+          out.push(this.heading(level, stepTitle(item.node), item.node.anchor), ...this.role(item.node), ...this.documentation(item.node), ...this.details(item.node));
+          out.push(...this.write(item.body, level + 1));
+          if (item.detached.length) {
+            out.push(this.heading(level + 1, de.flow.unreachable), ...this.write(item.detached, level + 1));
+          }
+          out.push(sentence(de.flow.subprocessDone(item.node.label)));
+          this.lastRole = undefined;
+          if (item.jump) out.push(jumpSentence(item.jump));
+          break;
+        }
         case 'choice': {
-          out.push(this.heading(level, stepTitle(item.node), item.node.anchor), ...this.role(item.node), ...this.details(item.node));
+          // Bei einem Teilprozess hat der Schritt seine Überschrift schon.
+          if (!item.node.child) out.push(this.heading(level, stepTitle(item.node), item.node.anchor), ...this.role(item.node), ...this.documentation(item.node), ...this.details(item.node));
           if (item.node.kind === 'branch') out.push(sentence(de.flow.branchIntro));
+          else if (item.node.kind === 'event-branch') out.push(sentence(de.flow.eventBranchIntro));
           else if (item.node.kind !== 'decision') out.push(sentence(de.steps.conditionalExits));
           out.push(...this.branches(item.node, item.branches, level + 1, false, next?.type === 'step'));
           break;
         }
         case 'parallel': {
-          if (item.node.kind !== 'join-split') out.push(this.heading(level, stepTitle(item.node), item.node.anchor));
-          out.push(...this.role(item.node), ...this.details(item.node));
-          out.push(sentence(de.flow.parallelIntro));
+          if (item.node.kind !== 'join-split' && !item.node.child) {
+            out.push(this.heading(level, stepTitle(item.node), item.node.anchor), ...this.role(item.node), ...this.documentation(item.node), ...this.details(item.node));
+          }
+          // Ein erzeugter Titel sagt es schon: „2 Wege laufen gleichzeitig“.
+          if (!item.node.labelIsGenerated) out.push(sentence(de.flow.parallelIntro));
           const simple = item.branches.every(
             (branch) => !branch.jump && branch.body.length === 1 && branch.body[0]!.type === 'step',
           );
@@ -232,23 +349,23 @@ class SequenceWriter {
           out.push(...this.side(item.boundary, item.body, item.jumps, level));
           break;
         case 'join': {
-          const text = item.absorbed && item.node.labelIsGenerated ? de.flow.afterParallel(item.node.number) : stepTitle(item.node);
-          out.push(this.heading(level, text, item.node.anchor), ...this.details(item.node));
+          out.push(this.heading(level, stepTitle(item.node), item.node.anchor), ...this.documentation(item.node), ...this.details(item.node));
           if (!item.absorbed) {
             const waits = item.node.entries.filter((entry) => entry !== item.node);
-            if (waits.length) out.push(sentence(de.steps.waitFor, plainList(waits)));
+            const inclusive = item.node.element.$instanceOf('bpmn:InclusiveGateway');
+            if (waits.length) out.push(sentence(inclusive ? de.steps.waitForInclusive : de.steps.waitFor, plainList(waits)));
           }
           if (item.jump) out.push(jumpSentence(item.jump));
           break;
         }
         case 'section':
-          // Direkt vor einer anderen Überschrift bliebe dieser Abschnitt leer.
-          if (!opensWithHeading(next) && !(next && this.showPools && nodeOfItem(next)?.pool !== this.lastPool)) {
+          // Direkt vor einer anderen Überschrift bliebe dieser Abschnitt leer. Die Sonderabläufe gliedern aber mehrere Schritte.
+          if (item.section === 'special' || (!opensWithHeading(next) && !(next && this.showPools && nodeOfItem(next)?.pool !== this.lastPool))) {
             out.push(this.heading(level, de.flow.sections[item.section]));
           }
           break;
         case 'later': {
-          const entries = item.node.entries.filter((entry) => entry !== item.node);
+          const entries = item.node.entries.filter((entry) => entry !== item.node).sort((a, b) => a.anchor - b.anchor);
           // Der Name folgt direkt darunter beim Schritt selbst.
           out.push(this.heading(level, de.flow.later(item.node.number ? de.steps.short(item.node.number) : refText(item.node))));
           if (entries.length) out.push(sentence(de.flow.comesFrom, plainList(entries)));
@@ -280,19 +397,23 @@ export interface ComposeInput {
 
 export function composeDocument(input: ComposeInput): ProcessDocument {
   const { title, graphs, plan, attachments, generalNotes, externals, freeMessages } = input;
-  const allNodes = graphs.flatMap((graph) => graph.nodes);
+  const allNodes = allNodesOf(graphs);
   const steps = allNodes.filter((node) => node.number > 0).length;
-  const tasks = allNodes.filter((node) => isTaskLike(node.kind)).length;
+  const tasks = allNodes.filter((node) => node.kind === 'task').length;
+  const subprocesses = allNodes.filter((node) => node.kind === 'subprocess').length;
   const decisions = allNodes.filter((node) => node.kind === 'decision' || node.kind === 'branch').length;
-  const ends = allNodes.filter((node) => node.kind === 'end').sort((a, b) => a.anchor - b.anchor);
+  // Ergebnisse des Prozesses sind nur die Enden der obersten Ebene, nicht die im Inneren von Teilprozessen.
+  const ends = graphs
+    .flatMap((graph) => graph.nodes)
+    .filter((node) => node.kind === 'end')
+    .sort((a, b) => a.anchor - b.anchor);
   const showPools = new Set(allNodes.map((node) => node.pool)).size > 1;
 
   const overview: Block[] = graphs.flatMap((graph) => documentationOf(graph.process)).map((doc) => ({ type: 'paragraph', content: [doc] }));
-  overview.push(sentence(de.overview.summary(steps, tasks, decisions)));
-  overview.push(
-    ends.length ? sentence(de.overview.outcomes + ends.map((node) => node.label).join(', ')) : sentence(de.overview.noOutcomes),
-  );
-  overview.push({ type: 'paragraph', content: [de.overview.readingHelp] });
+  overview.push(sentence(de.overview.summary(steps, tasks, subprocesses, decisions)));
+  const outcomes = [...new Set(ends.filter((node) => clean(node.element.name)).map((node) => node.label))];
+  overview.push(outcomes.length ? sentence(de.overview.outcomes + outcomes.join(', ')) : sentence(de.overview.noOutcomes));
+  overview.push({ type: 'paragraph', content: [de.overview.readingHelp(showPools)] });
 
   const roles: string[] = [];
   for (const graph of graphs) {
@@ -303,11 +424,15 @@ export function composeDocument(input: ComposeInput): ProcessDocument {
     }
   }
   for (const external of externals) roles.push(de.overview.roleExternal(external));
+  // Bei nur einem Pool mit Lanes stünde sein Name sonst nirgends.
+  const [onlyGraph] = graphs;
+  const onlyPool = graphs.length === 1 ? onlyGraph?.poolName : undefined;
+  const rolesIntro = onlyPool && !onlyGraph?.roles.includes(onlyPool) ? de.overview.rolesOf(onlyPool) : undefined;
 
   const notes: Block[] = graphs
     .flatMap((graph) => generalNotes.get(graph) ?? [])
     .map((note) => ({ type: 'paragraph', content: [de.overview.generalNote(note)] }));
-  const writer = new SequenceWriter(attachments, showPools);
+  const writer = new SequenceWriter(attachments, showPools, collectJumpTargets([...plan.main, ...plan.unreachable]));
   const flow: Block[] = [...notes, ...writer.write(plan.main, TOP_LEVEL)];
   if (plan.unreachable.length) {
     flow.push({ type: 'heading', level: TOP_LEVEL, text: de.flow.unreachable }, ...writer.write(plan.unreachable, TOP_LEVEL));
@@ -320,6 +445,7 @@ export function composeDocument(input: ComposeInput): ProcessDocument {
     overviewHeading: de.headings.overview,
     overview,
     rolesHeading: de.headings.roles,
+    ...(rolesIntro ? { rolesIntro } : {}),
     roles,
     messagesHeading: de.headings.messages,
     messages: freeMessages,

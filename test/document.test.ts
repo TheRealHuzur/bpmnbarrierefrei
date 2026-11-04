@@ -30,7 +30,7 @@ function expectEveryStepOnce(html: string, namedIds: string[]): void {
   const ids = stepIds(html);
   expect(ids).toEqual(Array.from({ length: ids.length }, (_, index) => index + 1));
   for (const id of namedIds) {
-    const placed = html.match(new RegExp(`<strong>[^<]*Element ${id}\\.</strong>|: Element ${id}</h\\d>|: Element ${id}</strong></p>`, 'g'));
+    const placed = html.match(new RegExp(`<strong>[^<]*Element ${id}\\.</strong>|: Element ${id}</h\\d>|: Element ${id}</div>`, 'g'));
     expect(placed, `Element ${id}`).toHaveLength(1);
   }
 }
@@ -136,7 +136,7 @@ describe('Gleichzeitige Wege', () => {
           flows('S>PS', 'PS>A', 'PS>B', 'A>PJ', 'B>PJ', 'PJ>Z', 'Z>E'),
       ),
     );
-    expect(text).toContain('### Schritt 1: 2 Wege laufen gleichzeitig\nDiese Wege laufen gleichzeitig.\nSchritt 2: A.\nSchritt 3: B.\n### Schritt 4: Warten, bis alle gleichzeitigen Wege fertig sind\nSchritt 5: Z.');
+    expect(text).toContain('### Schritt 1: 2 Wege laufen gleichzeitig\nSchritt 2: A.\nSchritt 3: B.\n### Schritt 4: Warten, bis alle gleichzeitigen Wege fertig sind\nSchritt 5: Z.');
   });
 
   it('gibt mehrschrittigen Wegen eigene Überschriften', async () => {
@@ -349,7 +349,7 @@ describe('Vollständigkeit', () => {
     }
     const { html } = await convert(model(body + labelled + flows(...edges)));
     expectValidDocument(html);
-    expect(html).toMatch(/<p id="s\d+"><strong>Schritt \d+, Entscheidung: Frage \d\?<\/strong><\/p>/);
+    expect(html).toMatch(/<div role="heading" aria-level="7" id="s\d+">Schritt \d+, Entscheidung: Frage \d\?<\/div>/);
     expect(html).toContain('<h6>Falls Links</h6>');
     expect(html).not.toMatch(/<h[7-9]/);
     expect(stepIds(html)).toHaveLength(2 + depth * 3);
@@ -407,6 +407,37 @@ describe('Zufällige, auch unsaubere Modelle', () => {
     }
 
     const result = await convert(model(body + flows(...edges)));
+    expectValidDocument(result.html);
+    expectEveryStepOnce(result.html, namedIds);
+  });
+
+  it.each(Array.from({ length: 60 }, (_, index) => index + 1))('Startwert %i mit verschachtelten Teilprozessen: jeder Schritt genau einmal', async (seed) => {
+    const next = random(seed * 104729);
+    const namedIds: string[] = [];
+    let idCounter = 0;
+    const buildBody = (depth: number): string => {
+      const count = 2 + Math.floor(next() * 6);
+      const ids: string[] = [];
+      let body = '';
+      for (let index = 0; index < count; index++) {
+        const id = `N${idCounter++}`;
+        ids.push(id);
+        namedIds.push(id);
+        const roll = next();
+        if (roll < 0.25 && depth < 3) body += `<bpmn:subProcess id="${id}" name="Element ${id}">${buildBody(depth + 1)}</bpmn:subProcess>`;
+        else if (roll < 0.45) body += `<bpmn:exclusiveGateway id="${id}" name="Element ${id}" />`;
+        else if (roll < 0.55) body += `<bpmn:inclusiveGateway id="${id}" name="Element ${id}" />`;
+        else if (roll < 0.65) body += `<bpmn:parallelGateway id="${id}" name="Element ${id}" />`;
+        else body += `<bpmn:task id="${id}" name="Element ${id}" />`;
+      }
+      for (let index = 0; index < count * 1.4; index++) {
+        const source = Math.floor(next() * count);
+        const target = next() < 0.8 ? Math.min(count - 1, source + 1 + Math.floor(next() * 2)) : Math.floor(next() * count);
+        body += `<bpmn:sequenceFlow id="F${idCounter++}" sourceRef="${ids[source]}" targetRef="${ids[target]}" />`;
+      }
+      return body;
+    };
+    const result = await convert(model(start + buildBody(0) + '<bpmn:sequenceFlow id="Z" sourceRef="S" targetRef="N0" />'));
     expectValidDocument(result.html);
     expectEveryStepOnce(result.html, namedIds);
   });
@@ -490,10 +521,207 @@ describe('Beispiele', () => {
     for (const name of ['Aufgabe ohne Fortsetzung', 'Teilprozess mit Inhalt', 'Welche Prüfungen?', 'Prüfung A', 'Prüfung B', 'Aufgabe ohne Verbindung']) {
       expect(text).toContain(name);
     }
-    expect(findings).toHaveLength(11);
-    expect(new Set(codes)).toEqual(new Set(['missing-name', 'unlabeled-exit', 'dead-end', 'unsupported', 'unreachable']));
+    expect(findings).toHaveLength(10);
+    expect(new Set(codes)).toEqual(new Set(['missing-name', 'unlabeled-exit', 'dead-end', 'unreachable']));
     await expect(html).toMatchFileSnapshot('../docs/test/mit-absichtlichen-fehlern.html');
   });
+});
+
+describe('Befunde aus echten Modellen', () => {
+  const lanes = (...pairs: [string, string[]][]) =>
+    `<bpmn:laneSet id="LS">${pairs
+      .map(([name, refs], index) => `<bpmn:lane id="L${index}" name="${name}">${refs.map((ref) => `<bpmn:flowNodeRef>${ref}</bpmn:flowNodeRef>`).join('')}</bpmn:lane>`)
+      .join('')}</bpmn:laneSet>`;
+
+  it('nennt am Ziel eines Sprungs die Zuständigkeit, auch wenn sie im Text zuletzt gleich war', async () => {
+    const { text } = await convert(
+      model(
+        lanes(['Skript', ['Z']], ['KI', ['A', 'G']]) +
+          start + task('Z', 'Holen') + task('A', 'Arbeiten') + '<bpmn:exclusiveGateway id="G" name="Fertig?" />' + end() +
+          named('n', 'Nein', 'G', 'Z') + named('j', 'Ja', 'G', 'E') + flows('S>Z', 'Z>A', 'A>G'),
+      ),
+    );
+    expect(text).toContain('Schritt 1: Holen. Zuständig: Skript.');
+    expect(text).toContain('Zurück zu Schritt 1: Holen');
+  });
+
+  it('nennt die Zuständigkeit bei einem Sprungziel, obwohl sie sich zum Schritt davor nicht ändert', async () => {
+    const { text } = await convert(
+      model(
+        lanes(['Rolle', ['A', 'B', 'G']]) +
+          start + task('A') + task('B') + '<bpmn:exclusiveGateway id="G" name="Nochmal?" />' + end() +
+          named('n', 'Ja', 'G', 'B') + named('j', 'Nein', 'G', 'E') + flows('S>A', 'A>B', 'B>G'),
+      ),
+    );
+    expect(text).toContain('Schritt 1: A. Zuständig: Rolle.\nSchritt 2: B. Zuständig: Rolle.');
+  });
+
+  it('macht aus mehrzeiligen Beschreibungen Absätze und Listen', async () => {
+    const { text, html } = await convert(
+      model(
+        start +
+          `<bpmn:task id="A" name="Einladen"><bpmn:documentation>Bitte Folgendes klären:&#10;- Thema&#10;- Ziele&#10;&#10;Danach die Mail senden.</bpmn:documentation></bpmn:task>` +
+          task('B') + end() + flows('S>A', 'A>B', 'B>E'),
+      ),
+    );
+    expect(text).toContain('Schritt 1: Einladen.\nBitte Folgendes klären:\n[] Thema\n[] Ziele\nDanach die Mail senden.\nSchritt 2: B.');
+    expect(html).toContain('<ul>\n<li>Thema</li>\n<li>Ziele</li>\n</ul>');
+  });
+
+  it('hält eine einzeilige Beschreibung beim Schritt', async () => {
+    const { text } = await convert(model(start + '<bpmn:task id="A" name="A"><bpmn:documentation>Kurz erklärt</bpmn:documentation></bpmn:task>' + flows('S>A')));
+    expect(text).toContain('Schritt 1: A. Kurz erklärt.');
+  });
+
+  it('hängt keinen Punkt an einen Strich am Ende der Beschreibung', async () => {
+    const { text } = await convert(model(start + '<bpmn:task id="A" name="A"><bpmn:documentation>Offen -</bpmn:documentation></bpmn:task>' + flows('S>A')));
+    expect(text).toContain('Offen -');
+    expect(text).not.toContain('-.');
+  });
+
+  it('bleibt mit mehrzeiliger Beschreibung bei einer Entscheidung gültig', async () => {
+    const { text, html } = await convert(
+      model(
+        start + '<bpmn:exclusiveGateway id="G" name="Frage?"><bpmn:documentation>Erste Zeile&#10;Zweite Zeile</bpmn:documentation></bpmn:exclusiveGateway>' +
+          task('A') + task('B') + named('x', 'X', 'G', 'A') + named('y', 'Y', 'G', 'B') + flows('S>G'),
+      ),
+    );
+    expect(text).toContain('### Schritt 1, Entscheidung: Frage?\nErste Zeile\nZweite Zeile\n#### Falls X');
+    expectValidDocument(html);
+  });
+
+  it('nennt bei einem leeren Fall das Ziel, mit Link nur wenn andere Fälle übersprungen werden', async () => {
+    const skipping = await convert(
+      model(
+        start + '<bpmn:exclusiveGateway id="G" name="Frage?" />' + task('A') + '<bpmn:exclusiveGateway id="M" />' + task('Z') +
+          named('n', 'Vorhanden', 'G', 'M') + named('j', 'Fehlt', 'G', 'A') + flows('S>G', 'A>M', 'M>Z'),
+      ),
+    );
+    expect(skipping.text).toContain('#### Falls Vorhanden\nIn diesem Fall gibt es keinen eigenen Schritt. Weiter mit Schritt 3: Z.');
+    expect(skipping.links).toBe(1);
+
+    const last = await convert(
+      model(
+        start + '<bpmn:exclusiveGateway id="G" name="Frage?" />' + task('A') + '<bpmn:exclusiveGateway id="M" />' + task('Z') +
+          named('j', 'Fehlt', 'G', 'A') + named('n', 'Vorhanden', 'G', 'M') + flows('S>G', 'A>M', 'M>Z'),
+      ),
+    );
+    expect(last.text).toContain('#### Falls Vorhanden\nIn diesem Fall gibt es keinen eigenen Schritt. Weiter mit Schritt 3: Z.');
+    expect(last.links).toBe(0);
+  });
+
+  it('schreibt bei unbenannten Entscheidungen keinen technischen Hinweis in den Lesetext', async () => {
+    const { text, findings } = await convert(
+      model(start + '<bpmn:exclusiveGateway id="G" />' + task('A') + task('B') + named('x', 'Bekannt', 'G', 'A') + named('y', 'Neu', 'G', 'B') + flows('S>G')),
+    );
+    expect(text).toContain('### Schritt 1: Entscheidung\n#### Falls Bekannt');
+    expect(text).not.toContain('ohne Namen');
+    expect(findings.map((finding) => finding.message).join(' ')).toContain('Eine Entscheidung (ID G) hat keinen Namen.');
+  });
+
+  it('nennt im Prüfbericht bei einem unbeschrifteten Ausgang die betroffene Entscheidung', async () => {
+    const { findings } = await convert(model(start + '<bpmn:exclusiveGateway id="G" />' + task('A') + task('B') + flows('S>G', 'G>A', 'G>B')));
+    expect(findings.find((finding) => finding.code === 'unlabeled-exit')?.message).toContain('von der Entscheidung (ID G)');
+  });
+
+  it('formuliert die Fälle eines ereignisbasierten Gateways als Ereignisse', async () => {
+    const { text } = await convert(
+      model(
+        start + '<bpmn:eventBasedGateway id="G" />' +
+          '<bpmn:intermediateCatchEvent id="B" name="Zwei Wochen sind verstrichen"><bpmn:timerEventDefinition id="t" /></bpmn:intermediateCatchEvent>' +
+          '<bpmn:intermediateCatchEvent id="A" name="Antwort ist eingegangen"><bpmn:messageEventDefinition id="m" /></bpmn:intermediateCatchEvent>' +
+          flows('S>G', 'G>B', 'G>A'),
+      ),
+    );
+    expect(text).toContain('#### Wenn zuerst eintritt: Zwei Wochen sind verstrichen');
+    expect(text).not.toContain('Falls Zwei Wochen');
+  });
+
+  it('unterscheidet Datenspeicher von erzeugten Datenobjekten', async () => {
+    const { text } = await convert(
+      model(
+        start +
+          `<bpmn:dataStoreReference id="DB" name="Datenbank" />
+           <bpmn:dataObjectReference id="DO" name="Bescheid" dataObjectRef="O" /><bpmn:dataObject id="O" />
+           <bpmn:task id="A" name="A">
+             <bpmn:dataInputAssociation id="i"><bpmn:sourceRef>DB</bpmn:sourceRef></bpmn:dataInputAssociation>
+             <bpmn:dataOutputAssociation id="o1"><bpmn:targetRef>DB</bpmn:targetRef></bpmn:dataOutputAssociation>
+             <bpmn:dataOutputAssociation id="o2"><bpmn:targetRef>DO</bpmn:targetRef></bpmn:dataOutputAssociation>
+           </bpmn:task>` +
+          flows('S>A'),
+      ),
+    );
+    expect(text).toContain('Erzeugt: Bescheid. Schreibt in: Datenbank. Liest aus: Datenbank.');
+  });
+
+  const onePool = (body: string) => `<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="D" targetNamespace="urn:t">
+    <bpmn:collaboration id="C"><bpmn:participant id="P1" name="Fachbereich" processRef="P" /></bpmn:collaboration>
+    <bpmn:process id="P" name="Antrag">${body}</bpmn:process>
+  </bpmn:definitions>`;
+
+  it('nennt den Pool bei den Beteiligten, wenn er Lanes hat', async () => {
+    const { text } = await convert(onePool(lanes(['Sachbearbeitung', ['A']]) + task('A')));
+    expect(text).toContain('## Beteiligte\nAlle gehören zu: Fachbereich.\n[] Sachbearbeitung');
+  });
+
+  it('wiederholt den Pool nicht, wenn er selbst der einzige Beteiligte ist', async () => {
+    const { text } = await convert(onePool(task('A')));
+    expect(text).not.toContain('Alle gehören zu');
+    expect(text).toContain('[] Fachbereich');
+  });
+
+  it('stottert nicht bei gleichnamigen Enden und meldet sie', async () => {
+    const { text, codes } = await convert(
+      model(
+        start + '<bpmn:exclusiveGateway id="G" name="Frage?" />' + end('E1', 'Ende') + end('E2', 'Ende') +
+          named('x', 'X', 'G', 'E1') + named('y', 'Y', 'G', 'E2') + flows('S>G'),
+      ),
+    );
+    expect(text).toContain('Mögliche Ergebnisse: Ende.');
+    expect(text).not.toContain('Ende: Ende');
+    expect(codes).toContain('duplicate-end');
+  });
+
+  it('sagt gleichzeitige Wege nicht doppelt an, bei einem Namen aber schon', async () => {
+    const parallel = (attrs: string) =>
+      model(start + `<bpmn:parallelGateway id="Q" ${attrs} />` + task('A') + task('B') + flows('S>Q', 'Q>A', 'Q>B'));
+    expect((await convert(parallel(''))).text).not.toContain('Diese Wege laufen gleichzeitig');
+    expect((await convert(parallel('name="Prüfen"'))).text).toContain('Diese Wege laufen gleichzeitig.');
+  });
+
+  it('nennt ein Sprungziel im Link genauso wie an der Stelle selbst', async () => {
+    const { text, html } = await convert(
+      model(
+        start + '<bpmn:parallelGateway id="PS" />' + '<bpmn:exclusiveGateway id="G" name="Frage?" />' + task('A') + task('B') + '<bpmn:parallelGateway id="PJ" />' +
+          named('x', 'Kurz', 'G', 'PJ') + named('y', 'Lang', 'G', 'A') + flows('S>PS', 'PS>G', 'PS>B', 'A>PJ', 'B>PJ'),
+      ),
+    );
+    const link = /<a [^>]*>([^<]*)<\/a>/.exec(html)?.[1];
+    expect(link).toMatch(/^Schritt \d+: Warten, bis alle gleichzeitigen Wege fertig sind$/);
+    expect(text).toContain(`### ${link}`);
+  });
+
+  it('zählt ereignisbasierte Gateways nicht als Entscheidungen und Teilprozesse getrennt', async () => {
+    const { text } = await convert(
+      model(
+        start + '<bpmn:subProcess id="SP" name="Teil"><bpmn:task id="I" name="Innen" /></bpmn:subProcess><bpmn:eventBasedGateway id="G" />' +
+          '<bpmn:intermediateCatchEvent id="A" name="X"><bpmn:signalEventDefinition id="s1" /></bpmn:intermediateCatchEvent>' +
+          '<bpmn:intermediateCatchEvent id="B" name="Y"><bpmn:signalEventDefinition id="s2" /></bpmn:intermediateCatchEvent>' +
+          flows('S>SP', 'SP>G', 'G>A', 'G>B'),
+      ),
+    );
+    expect(text).toContain('davon 1 Aufgabe, 1 Teilprozess und 0 Entscheidungen.');
+  });
+
+  it('erwähnt Wechsel zwischen Organisationen in der Lesehilfe nur, wenn es sie gibt', async () => {
+    const single = await convert(model(start + task('A') + flows('S>A')));
+    expect(single.text).not.toContain('Organisationen');
+    expect(single.text).toContain('Wer zuständig ist, steht beim Schritt, sobald es wechselt.');
+    const { text } = await convert(read('../docs/test/bauantrag.bpmn'));
+    expect(text).toContain('Wechsel zwischen den beteiligten Organisationen sind ebenfalls Überschriften.');
+  });
+
+  const read = (path: string) => readFileSync(new URL(path, import.meta.url));
 });
 
 describe('Form des Dokuments', () => {
@@ -535,7 +763,7 @@ describe('Form des Dokuments', () => {
 
   it('gibt Start und Ende keine Nummer', async () => {
     const { text } = await convert(model(start + task('A') + end() + flows('S>A', 'A>E')));
-    expect(text).toContain('Start: Start.\nSchritt 1: A.\nEnde: Fertig. Dieser Weg endet hier.');
+    expect(text).toContain('Start.\nSchritt 1: A.\nEnde: Fertig. Dieser Weg endet hier.');
     expect(text).toContain('Dieser Prozess hat 1 Schritt, davon 1 Aufgabe');
   });
 
@@ -554,7 +782,7 @@ describe('Form des Dokuments', () => {
   it('nennt nie eine Nummer 0, auch nicht bei einem Start mit mehreren Ausgängen', async () => {
     const { text, html } = await convert(model(start + task('A') + task('B') + flows('S>A', 'S>B')));
     expect(text).not.toContain('Schritt 0');
-    expect(text).toContain('### Start: Start\nDiese Wege laufen gleichzeitig.');
+    expect(text).toContain('### Start\nDiese Wege laufen gleichzeitig.');
     expectValidDocument(html);
   });
 });
@@ -589,7 +817,7 @@ describe('Reihenfolge', () => {
 
   it('nennt den direkten Nachfolger nicht', async () => {
     const { text } = await convert(model(start + task('A') + task('B') + end() + flows('S>A', 'A>B', 'B>E')));
-    expect(text).toContain('Start: Start.\nSchritt 1: A.\nSchritt 2: B.\nEnde: Fertig.');
+    expect(text).toContain('Start.\nSchritt 1: A.\nSchritt 2: B.\nEnde: Fertig.');
     expect(text).not.toContain('Weiter mit');
   });
 });
@@ -630,7 +858,7 @@ describe('Beschriftung von Entscheidungen', () => {
       decision('<bpmn:sequenceFlow id="j" sourceRef="G" targetRef="A" /><bpmn:sequenceFlow id="n" sourceRef="G" targetRef="B" />', 'id="G"'),
     );
     expect(text.match(/Fall ohne Beschriftung/g)).toHaveLength(2);
-    expect(text).toContain('Entscheidung: ohne Namen im Modell');
+    expect(text).toContain('### Schritt 1: Entscheidung');
     expect(codes.filter((code) => code === 'unlabeled-exit')).toHaveLength(2);
     expect(findings.some((finding) => finding.code === 'missing-name' && finding.elementId === 'G')).toBe(true);
   });
@@ -692,17 +920,196 @@ describe('Lücken im Modell', () => {
     expect(codes).toContain('broken-flow');
   });
 
-  it('meldet noch nicht unterstützte Elemente, statt sie zu übergehen', async () => {
+  it('meldet Verzweigungen, deren Regel nicht beschreibbar ist', async () => {
     const { codes, text } = await convert(
+      model(start + '<bpmn:complexGateway id="C" name="Regel?" />' + task('A') + task('B') + named('x', 'X', 'C', 'A') + named('y', 'Y', 'C', 'B') + flows('S>C')),
+    );
+    expect(codes).toContain('unsupported');
+    expect(text).toContain('Schritt 1, Verzweigung: Regel?');
+  });
+
+  it('schreibt den Prüfbericht ohne technische BPMN-Begriffe', async () => {
+    const { findings } = await convert(
       model(
-        start + '<bpmn:subProcess id="SP" name="Teil"><bpmn:task id="Innen" name="Innen" /></bpmn:subProcess>' +
-          '<bpmn:inclusiveGateway id="I" name="Welche?" />' + task('A') + task('B') +
-          flows('S>SP', 'SP>I', 'I>A', 'I>B'),
+        '<bpmn:startEvent id="S" /><bpmn:task id="A" /><bpmn:exclusiveGateway id="G" />' + task('X') + task('Y') + task('Insel') +
+          flows('S>A', 'A>G', 'G>X', 'G>Y'),
       ),
     );
-    expect(codes.filter((code) => code === 'unsupported')).toHaveLength(2);
-    expect(text).toContain('Dieser Teilprozess enthält 1 weiteres Element');
-    expect(text).toContain('Mehrere dieser Wege können zutreffen.');
+    expect(findings.length).toBeGreaterThan(3);
+    for (const finding of findings) expect(finding.message).not.toMatch(/bpmn:|Gateway \(|StartEvent/);
+    expect(findings.map((finding) => finding.message).join(' ')).toContain('Ein Startereignis (ID S) hat keinen Namen.');
+  });
+});
+
+describe('Teilprozesse', () => {
+  const sub = (id: string, name: string, body: string, attrs = '') => `<bpmn:subProcess id="${id}" name="${name}" ${attrs}>${body}</bpmn:subProcess>`;
+  const inner = (prefix: string, ...pairs: string[]) =>
+    pairs
+      .map((pair, index) => {
+        const [source, target] = pair.split('>');
+        return `<bpmn:sequenceFlow id="${prefix}${index}" sourceRef="${source}" targetRef="${target}" />`;
+      })
+      .join('');
+
+  it('beschreibt den Inhalt am Ort, mit durchgehenden Nummern und klarem Abschluss', async () => {
+    const { text, html, codes } = await convert(
+      model(
+        start +
+          sub('SP', 'Prüfung', '<bpmn:startEvent id="IS" name="Los" />' + task('I1', 'Innen eins') + task('I2', 'Innen zwei') + '<bpmn:endEvent id="IE" name="Innen fertig" />' + inner('i', 'IS>I1', 'I1>I2', 'I2>IE')) +
+          task('Z', 'Danach') + end() + flows('S>SP', 'SP>Z', 'Z>E'),
+      ),
+    );
+    expect(text).toContain('### Schritt 1, Teilprozess: Prüfung\nStart: Los.\nSchritt 2: Innen eins.\nSchritt 3: Innen zwei.\nEnde: Innen fertig. Dieser Weg endet hier.\nDamit ist der Teilprozess „Prüfung“ abgeschlossen.\nSchritt 4: Danach.');
+    expect(text).toContain('Mögliche Ergebnisse: Fertig.');
+    expect(text).toContain('Dieser Prozess hat 4 Schritte');
+    expect(codes).toEqual([]);
+    expectValidDocument(html);
+  });
+
+  it('verschachtelt Teilprozesse und übernimmt die Zuständigkeit', async () => {
+    const { text, html } = await convert(
+      model(
+        '<bpmn:laneSet id="LS"><bpmn:lane id="L" name="Rolle"><bpmn:flowNodeRef>SP</bpmn:flowNodeRef></bpmn:lane></bpmn:laneSet>' +
+          start + sub('SP', 'Außen', sub('SQ', 'Innen', task('T', 'Tief')) ) + flows('S>SP'),
+      ),
+    );
+    expect(text).toContain('### Schritt 1, Teilprozess: Außen\nZuständig: Rolle.\n#### Schritt 2, Teilprozess: Innen\nZuständig: Rolle.\nSchritt 3: Tief.');
+    expectValidDocument(html);
+  });
+
+  it('kommt ohne Startereignis im Teilprozess aus und meldet das nicht als Fehler', async () => {
+    const { codes } = await convert(model(start + sub('SP', 'Teil', task('T', 'Innen') + end('IE', 'Aus') + inner('i', 'T>IE')) + end() + flows('S>SP', 'SP>E')));
+    expect(codes).toEqual([]);
+  });
+
+  it('stellt Ereignis-Teilprozesse und Ausgleichsaufgaben als Sonderabläufe dar', async () => {
+    const { text, codes, html } = await convert(
+      model(
+        start + task('A') + end() + flows('S>A', 'A>E') +
+          sub('EV', 'Storno', '<bpmn:startEvent id="ES" name="Storno kommt"><bpmn:messageEventDefinition id="md" /></bpmn:startEvent>' + task('R', 'Rückabwickeln') + end('EE', 'Storniert') + inner('i', 'ES>R', 'R>EE'), 'triggeredByEvent="true"') +
+          '<bpmn:task id="K" name="Rückbuchen" isForCompensation="true" />',
+      ),
+    );
+    expect(text).toContain('### Sonderabläufe\n### Schritt 2, Teilprozess: Storno\nDieser Teilprozess läuft nicht im normalen Ablauf.');
+    expect(text).toContain('Schritt 4: Rückbuchen. Dieser Schritt läuft nicht im normalen Ablauf.');
+    expect(codes).not.toContain('unreachable');
+    expect(codes).not.toContain('dead-end');
+    expectValidDocument(html);
+  });
+
+  it('nennt die Anmerkung in einem Teilprozess beim richtigen Schritt', async () => {
+    const { text } = await convert(
+      model(
+        start + sub('SP', 'Teil', task('T', 'Innen') + '<bpmn:textAnnotation id="N"><bpmn:text>Wichtig</bpmn:text></bpmn:textAnnotation><bpmn:association id="As" sourceRef="T" targetRef="N" />') + flows('S>SP'),
+      ),
+    );
+    expect(text).toContain('Schritt 2: Innen. Hinweis: Wichtig.');
+  });
+
+  it('ordnet den Pool anhand einer Nachricht aus einem Teilprozess ein', async () => {
+    const { text, html } = await convert(`<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="D" targetNamespace="urn:t">
+      <bpmn:collaboration id="C">
+        <bpmn:participant id="PA" name="Amt" processRef="A" /><bpmn:participant id="PK" name="Kunde" processRef="K" />
+        <bpmn:messageFlow id="M" name="Antrag" sourceRef="T" targetRef="AS" />
+      </bpmn:collaboration>
+      <bpmn:process id="A"><bpmn:startEvent id="AS" name="Eingang" />${task('A1', 'Bearbeiten')}${inner('a', 'AS>A1')}</bpmn:process>
+      <bpmn:process id="K"><bpmn:startEvent id="KS" name="Bedarf" />${sub('SP', 'Antrag stellen', task('T', 'Absenden'))}${inner('k', 'KS>SP')}</bpmn:process>
+    </bpmn:definitions>`);
+    expect(text.indexOf('Absenden')).toBeLessThan(text.indexOf('Eingang'));
+    expect(text).toContain('### Beginn bei Kunde');
+    expect(text).toContain('### Wechsel zu Amt');
+    expectValidDocument(html);
+  });
+
+  it('beschreibt Aufrufe anderer Prozesse und meldet, wenn sie nicht in der Datei stehen', async () => {
+    const internal = await convert(`<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="D" targetNamespace="urn:t">
+      <bpmn:process id="A"><bpmn:startEvent id="S" name="Start" /><bpmn:callActivity id="C" name="Prüfen" calledElement="B" />${inner('a', 'S>C')}</bpmn:process>
+      <bpmn:process id="B" name="Prüfprozess">${task('T', 'Prüfen')}</bpmn:process>
+    </bpmn:definitions>`);
+    expect(internal.text).toContain('Dieser Schritt ruft den Prozess „Prüfprozess“ auf.');
+    expect(internal.codes).not.toContain('unsupported');
+
+    const external = await convert(model(start + '<bpmn:callActivity id="C" name="Prüfen" calledElement="Fremd" />' + flows('S>C')));
+    expect(external.text).toContain('ruft den Prozess „Fremd“ auf. Dessen Inhalt ist nicht Teil dieses Dokuments.');
+    expect(external.findings.some((finding) => finding.code === 'unsupported' && finding.severity === 'info')).toBe(true);
+  });
+});
+
+describe('Weitere Gateways und Ereignisse', () => {
+  it('beschreibt inklusive Verzweigung und Zusammenführung', async () => {
+    const { text, codes } = await convert(
+      model(
+        start + '<bpmn:inclusiveGateway id="I" name="Welche Prüfungen?" />' + task('A') + task('B') + '<bpmn:inclusiveGateway id="J" />' + task('Z') + end() +
+          named('x', 'Bau', 'I', 'A') + named('y', 'Brandschutz', 'I', 'B') + flows('S>I', 'A>J', 'B>J', 'J>Z', 'Z>E'),
+      ),
+    );
+    expect(text).toContain('### Schritt 1, Verzweigung: Welche Prüfungen?\nMehrere dieser Wege können zutreffen.\n#### Weg: Bau\nSchritt 2: A.\n#### Weg: Brandschutz\nSchritt 3: B.');
+    expect(text).toContain('### Schritt 4: Warten, bis alle begonnenen Wege fertig sind\nWeiter erst, wenn von diesen Schritten alle begonnenen abgeschlossen sind: Schritt 2: A, Schritt 3: B.');
+    expect(codes).not.toContain('unsupported');
+  });
+
+  it('beschreibt ein ereignisbasiertes Gateway mit den Ereignissen als Fällen', async () => {
+    const { text, codes, html } = await convert(
+      model(
+        start + '<bpmn:eventBasedGateway id="G" />' +
+          '<bpmn:intermediateCatchEvent id="A" name="Antwort da"><bpmn:messageEventDefinition id="m" /></bpmn:intermediateCatchEvent>' +
+          '<bpmn:intermediateCatchEvent id="B" name="14 Tage vorbei"><bpmn:timerEventDefinition id="t" /></bpmn:intermediateCatchEvent>' +
+          end('E1', 'Beantwortet') + end('E2', 'Abgebrochen') + flows('S>G', 'G>A', 'G>B', 'A>E1', 'B>E2'),
+      ),
+    );
+    expect(text).toContain('### Schritt 1: Warten auf das erste von mehreren Ereignissen\nEs geht weiter, sobald das erste dieser Ereignisse eintritt.\n#### Wenn zuerst eintritt: Antwort da');
+    expect(text).toContain('#### Wenn zuerst eintritt: 14 Tage vorbei');
+    expect(text).toContain('Wartet auf: Nachricht.');
+    expect(text).toContain('Wartet auf: Frist.');
+    expect(codes).not.toContain('unlabeled-exit');
+    expect(codes).not.toContain('unsupported');
+    expectValidDocument(html);
+  });
+
+  it('unterscheidet auslösende und wartende Zwischenereignisse', async () => {
+    const { text } = await convert(
+      model(start + '<bpmn:intermediateThrowEvent id="T" name="Melden"><bpmn:signalEventDefinition id="s" /></bpmn:intermediateThrowEvent>' + flows('S>T')),
+    );
+    expect(text).toContain('Schritt 1, Ereignis: Melden. Löst aus: Signal.');
+  });
+
+  it('verbindet Verbindungsereignisse über ihren Namen', async () => {
+    const { text, codes, html } = await convert(
+      model(
+        start + task('A') +
+          '<bpmn:intermediateThrowEvent id="L1" name="Weiter auf Seite 2"><bpmn:linkEventDefinition id="d1" name="Seite2" /></bpmn:intermediateThrowEvent>' +
+          '<bpmn:intermediateCatchEvent id="L2" name="Von Seite 1"><bpmn:linkEventDefinition id="d2" name="Seite2" /></bpmn:intermediateCatchEvent>' +
+          task('B') + end() + flows('S>A', 'A>L1', 'L2>B', 'B>E'),
+      ),
+    );
+    expect(text).toContain('Schritt 1: A.\nSchritt 2, Ereignis: Weiter auf Seite 2.\nSchritt 3, Ereignis: Von Seite 1.\nSchritt 4: B.');
+    expect(codes).toEqual([]);
+    expectValidDocument(html);
+  });
+
+  it('meldet ein Verbindungsereignis ohne Gegenstück', async () => {
+    const { codes, findings } = await convert(
+      model(start + '<bpmn:intermediateThrowEvent id="L1" name="Ins Leere"><bpmn:linkEventDefinition id="d1" name="Nirgends" /></bpmn:intermediateThrowEvent>' + flows('S>L1')),
+    );
+    expect(codes).toContain('unsupported');
+    expect(findings.map((finding) => finding.message).join(' ')).toContain('kein Gegenstück');
+  });
+
+  it('nennt die Kompensation an einer Aufgabe, ohne einen Abbruch zu behaupten', async () => {
+    const { text } = await convert(
+      model(start + task('A') + '<bpmn:boundaryEvent id="B" attachedToRef="A"><bpmn:compensateEventDefinition id="c" /></bpmn:boundaryEvent><bpmn:task id="K" name="Rückbuchen" isForCompensation="true" />' + flows('S>A')),
+    );
+    expect(text).toContain('Sonderfall Kompensation\nWird diese Aufgabe später rückgängig gemacht');
+    expect(text).not.toContain('abgebrochen');
+  });
+
+  it.each([
+    ['<bpmn:standardLoopCharacteristics />', 'wird wiederholt'],
+    ['<bpmn:multiInstanceLoopCharacteristics isSequential="true" />', 'mehrfach nacheinander'],
+    ['<bpmn:multiInstanceLoopCharacteristics />', 'mehrfach gleichzeitig'],
+  ])('nennt Wiederholungen: %s', async (loop, expected) => {
+    const { text } = await convert(model(start + `<bpmn:task id="A" name="A">${loop}</bpmn:task>` + flows('S>A')));
+    expect(text).toContain(expected);
   });
 });
 

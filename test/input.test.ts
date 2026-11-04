@@ -24,7 +24,7 @@ describe('Exporte verschiedener Werkzeuge (nachgestellt)', () => {
     const ns = prefix ? `xmlns:${prefix}="${BPMN_NS}"` : `xmlns="${BPMN_NS}"`;
     const root = prefix ? `${prefix}:definitions` : 'definitions';
     const { text } = await convert(`<${root} ${ns} id="D" targetNamespace="urn:t">${body(prefix)}</${root}>`);
-    expect(text).toContain('Start: Start.\nSchritt 1: Aufgabe.');
+    expect(text).toContain('Start.\nSchritt 1: Aufgabe.');
   });
 
   it('übersteht Herstellerfelder, fremde Attribute und unbekannte Namensräume', async () => {
@@ -41,14 +41,14 @@ describe('Exporte verschiedener Werkzeuge (nachgestellt)', () => {
       </bpmn:process>
       <hersteller:eigenerKnoten />
     </bpmn:definitions>`);
-    expect(text).toContain('Start: Start.\nSchritt 1: Aufgabe. Beschreibung.');
+    expect(text).toContain('Start.\nSchritt 1: Aufgabe. Beschreibung.');
   });
 
   it('kommt ohne Diagrammdaten aus', async () => {
     const { text, codes } = await convert(
       model('<bpmn:startEvent id="S" name="Start" /><bpmn:task id="A" name="A" /><bpmn:endEvent id="E" name="Ende" />' + flows('S>A', 'A>E')),
     );
-    expect(text).toContain('Start: Start.\nSchritt 1: A.\nEnde: Ende.');
+    expect(text).toContain('Start.\nSchritt 1: A.\nEnde.');
     expect(codes).toEqual([]);
   });
 
@@ -91,7 +91,7 @@ describe('Exporte verschiedener Werkzeuge (nachgestellt)', () => {
         `<bpmn:task id="A" name="A"><bpmn:documentation textFormat="text/html">&lt;p&gt;Erst &lt;b&gt;das&lt;/b&gt;&lt;/p&gt;&lt;p&gt;dann &amp;amp; jenes&lt;/p&gt;</bpmn:documentation></bpmn:task>`,
       ),
     );
-    expect(text).toContain('Erst das dann & jenes');
+    expect(text).toContain('Erst das\ndann & jenes');
     expect(html).not.toContain('&lt;p');
   });
 });

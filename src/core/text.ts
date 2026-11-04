@@ -23,6 +23,16 @@ export function plainText(value: unknown, textFormat?: unknown): string {
   return clean(decodeEntities(withoutTags));
 }
 
+/** Wie plainText, behält aber die Zeilen: Lange Beschreibungen enthalten oft Absätze und Listen. */
+export function plainLines(value: unknown, textFormat?: unknown): string[] {
+  if (typeof value !== 'string') return [];
+  const isHtml = (typeof textFormat === 'string' && /html/i.test(textFormat)) || HTML_TAG.test(value);
+  const text = isHtml
+    ? decodeEntities(value.replace(/<(?:br|\/p|\/div|\/li|\/h[1-6]|\/tr)\b[^>]*>/gi, '\n').replace(/<li\b[^>]*>/gi, '- ').replace(/<[^>]*>/g, ''))
+    : value;
+  return text.split(/\r?\n/).map(clean).filter(Boolean);
+}
+
 function decodeEntities(value: string): string {
   return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, code: string) => {
     if (code[0] === '#') {

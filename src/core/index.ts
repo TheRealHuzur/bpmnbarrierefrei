@@ -10,7 +10,7 @@ import { de } from './texts.de.ts';
 export { ConvertError } from './findings.ts';
 export type { Finding, Severity, FindingCode, FatalCode } from './findings.ts';
 export type { ProcessDocument } from './document.ts';
-export { renderHtml } from './render-html.ts';
+export { renderFragment, renderHtml } from './render-html.ts';
 
 export const MAX_FLOW_NODES = 5000;
 
@@ -58,18 +58,32 @@ export async function convertBpmn(input: string | Uint8Array, options: ConvertOp
   }
   if (!ordered.length) throw new ConvertError('no-process', de.errors.noProcess);
 
-  const flowNodeCount = ordered.flatMap((process) =>
-    list(process.flowElements).filter((element) => element.$instanceOf('bpmn:FlowNode')),
-  ).length;
-  if (flowNodeCount > MAX_FLOW_NODES) throw new ConvertError('too-large', de.errors.tooLarge);
+  // Auch die Inhalte von Teilprozessen zählen zur Größe des Modells.
+  const countFlowNodes = (container: BpmnElement): number =>
+    list(container.flowElements)
+      .filter((element) => element.$instanceOf('bpmn:FlowNode'))
+      .reduce((sum, element) => sum + 1 + countFlowNodes(element), 0);
+  if (ordered.reduce((sum, process) => sum + countFlowNodes(process), 0) > MAX_FLOW_NODES) {
+    throw new ConvertError('too-large', de.errors.tooLarge);
+  }
+
+  const processNames = new Map<string, string>();
+  for (const process of ordered) {
+    const name = poolOf.get(process) ?? clean(process.name);
+    if (name && process.id) processNames.set(process.id, name);
+  }
 
   const positions = readPositions(definitions);
   const graphs: ProcessGraph[] = ordered.map((process) => {
     const poolName = poolOf.get(process);
-    return analyzeProcess(process, { positions, addFinding, ...(poolName ? { poolName } : {}) });
+    return analyzeProcess(process, { positions, processNames, addFinding, ...(poolName ? { poolName } : {}) });
   });
 
-  const nodeOf = new Map<BpmnElement, GraphNode>(graphs.flatMap((graph) => [...graph.nodeOf]));
+  /** Alle Graphen einschließlich der Teilprozesse. */
+  const allGraphs = (scope: ProcessGraph[]): ProcessGraph[] =>
+    scope.flatMap((graph) => [graph, ...allGraphs(graph.nodes.flatMap((node) => (node.child ? [node.child] : [])))]);
+
+  const nodeOf = new Map<BpmnElement, GraphNode>(allGraphs(graphs).flatMap((graph) => [...graph.nodeOf]));
   // Grenzereignisse zählen als Teil ihres Schritts.
   const stepOf = (element: BpmnElement | undefined): GraphNode | undefined => {
     if (!element) return undefined;
@@ -92,7 +106,8 @@ export async function convertBpmn(input: string | Uint8Array, options: ConvertOp
     const to = receiverOf(target);
     // Ein Grenzereignis unterbricht eine laufende Aufgabe und legt keine Reihenfolge der Schritte fest.
     if (!from || !to || target?.$instanceOf?.('bpmn:BoundaryEvent')) continue;
-    if (graphs.some((graph) => graph.nodes.includes(from) && graph.nodes.includes(to))) continue;
+    // Innerhalb eines Pools legt der Sequenzfluss die Reihenfolge fest.
+    if (from.pool === to.pool) continue;
     links.push({ from, to });
   }
 
@@ -139,7 +154,9 @@ export async function convertBpmn(input: string | Uint8Array, options: ConvertOp
       findings.push({ severity: 'info', code: 'unsupported', message: de.findings.unsupportedGroup(group.id), elementId: group.id });
     }
   };
-  for (const graph of graphs) collectArtifacts(list(graph.process.artifacts), graph);
+  for (const graph of graphs) {
+    for (const scope of allGraphs([graph])) collectArtifacts(list(scope.process.artifacts), graph);
+  }
   for (const collaboration of collaborations) collectArtifacts(list(collaboration.artifacts), graphs[0]!);
 
   const nameOfParty = (element: BpmnElement | undefined): string =>

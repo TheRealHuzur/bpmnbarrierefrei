@@ -2,10 +2,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { ConvertError, convertBpmn, renderHtml, type Finding } from '../core/index.ts';
 
-const USAGE = `Aufruf: npm run convert -- <modell.bpmn> [-o <ausgabe.html>]
+const USAGE = `Aufruf: npm run convert -- <modell.bpmn> [-o <ausgabe.html oder ausgabe.docx>]
 
-Wandelt ein BPMN-2.0-Modell in ein barrierefreies HTML-Dokument um.
-Ohne -o entsteht die HTML-Datei neben dem Modell.`;
+Wandelt ein BPMN-2.0-Modell in ein barrierefreies Dokument um.
+Ohne -o entsteht eine HTML-Datei neben dem Modell.
+Endet die Ausgabe auf .docx, entsteht ein Word-Dokument.`;
 
 const SEVERITY_LABEL: Record<Finding['severity'], string> = { warning: 'Warnung', info: 'Hinweis' };
 
@@ -36,10 +37,16 @@ function main(args: string[]): number {
     return 1;
   }
 
+  const target = output;
   convertBpmn(bytes, { fallbackTitle: basename(input, extname(input)) }).then(
-    ({ document, findings }) => {
-      writeFileSync(output, renderHtml(document));
-      console.log(`${output} geschrieben.`);
+    async ({ document, findings }) => {
+      if (extname(target).toLowerCase() === '.docx') {
+        const { renderDocx } = await import('../core/render-docx.ts');
+        writeFileSync(target, await renderDocx(document));
+      } else {
+        writeFileSync(target, renderHtml(document));
+      }
+      console.log(`${target} geschrieben.`);
       if (findings.length) {
         console.error(`\nPrüfbericht (${findings.length}):`);
         for (const finding of findings) console.error(`- ${SEVERITY_LABEL[finding.severity]}: ${finding.message}`);

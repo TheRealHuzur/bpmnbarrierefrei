@@ -9,16 +9,25 @@
   },
   "scripts": {
     "convert": "node src/cli/main.ts",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "bpmn-moddle": "^10.3.1"
+    "bpmn-moddle": "^10.3.1",
+    "docx": "^9.15.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
     "@types/node": "^24.19.2",
+    "jszip": "^3.10.2",
     "typescript": "^7.0.2",
+    "vite": "^8.3.5",
     "vitest": "^5.1.0"
   }
 }

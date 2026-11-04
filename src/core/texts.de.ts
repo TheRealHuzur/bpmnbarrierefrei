@@ -27,16 +27,39 @@ export const de = {
     'join-split': 'Warten und gleichzeitig',
     merge: 'Zusammenführung',
     branch: 'Verzweigung',
+    'event-branch': 'Warten auf Ereignis',
     other: 'Element',
   } satisfies Record<StepKind, string>,
+
+  /** Verständliche Namen für den Prüfbericht. */
+  elementType(type: string): string {
+    if (/Task$/.test(type)) return 'Eine Aufgabe';
+    const names: Record<string, string> = {
+      'bpmn:StartEvent': 'Ein Startereignis',
+      'bpmn:EndEvent': 'Ein Endereignis',
+      'bpmn:IntermediateCatchEvent': 'Ein Zwischenereignis',
+      'bpmn:IntermediateThrowEvent': 'Ein Zwischenereignis',
+      'bpmn:BoundaryEvent': 'Ein Grenzereignis',
+      'bpmn:ExclusiveGateway': 'Eine Entscheidung',
+      'bpmn:InclusiveGateway': 'Eine Verzweigung',
+      'bpmn:ComplexGateway': 'Eine Verzweigung',
+      'bpmn:SubProcess': 'Ein Teilprozess',
+      'bpmn:Transaction': 'Ein Teilprozess',
+      'bpmn:AdHocSubProcess': 'Ein Teilprozess',
+      'bpmn:CallActivity': 'Ein Prozessaufruf',
+    };
+    return names[type] ?? 'Ein Element';
+  },
 
   labels: {
     unnamed: 'ohne Namen im Modell',
     defaultExit: 'Sonst',
     unlabeledExit: 'Ohne Beschriftung',
     split: (count: number) => `${count} Wege laufen gleichzeitig`,
-    join: 'Warten auf alle gleichzeitigen Wege',
+    join: 'Warten, bis alle gleichzeitigen Wege fertig sind',
+    inclusiveJoin: 'Warten, bis alle begonnenen Wege fertig sind',
     joinSplit: (count: number) => `Warten auf alle Wege, dann laufen ${count} Wege gleichzeitig`,
+    eventBranch: 'Warten auf das erste von mehreren Ereignissen',
   },
 
   eventKinds: {
@@ -60,6 +83,17 @@ export const de = {
     role: (role: string) => `Zuständig: ${role}`,
     note: (text: string) => `Hinweis: ${text}`,
     eventKind: (kind: string) => `Art des Ereignisses: ${kind}`,
+    trigger: (kind: string) => `Auslöser: ${kind}`,
+    waitsFor: (kind: string) => `Wartet auf: ${kind}`,
+    triggers: (kind: string) => `Löst aus: ${kind}`,
+    writes: (names: string) => `Schreibt in: ${names}`,
+    reads: (names: string) => `Liest aus: ${names}`,
+    loopStandard: 'Dieser Schritt wird wiederholt, solange es nötig ist.',
+    loopSequential: 'Dieser Schritt wird mehrfach nacheinander ausgeführt.',
+    loopParallel: 'Dieser Schritt wird mehrfach gleichzeitig ausgeführt.',
+    eventSubprocess: 'Dieser Teilprozess läuft nicht im normalen Ablauf. Er beginnt, sobald sein Startereignis eintritt.',
+    compensation: 'Dieser Schritt läuft nicht im normalen Ablauf. Er macht eine erledigte Aufgabe rückgängig.',
+    adHoc: 'Die Schritte dieses Teilprozesses haben keine feste Reihenfolge.',
     produces: (names: string) => `Erzeugt: ${names}`,
     needs: (names: string) => `Benötigt: ${names}`,
     sends: (message: string) => (message ? `Sendet „${message}“ an ` : 'Sendet eine Nachricht an '),
@@ -67,13 +101,13 @@ export const de = {
     externalParty: 'eine externe Stelle',
     noWayIn: 'Zu diesem Schritt führt im Modell kein Weg vom Start aus.',
     waitFor: 'Weiter erst, wenn diese Schritte abgeschlossen sind: ',
+    waitForInclusive: 'Weiter erst, wenn von diesen Schritten alle begonnenen abgeschlossen sind: ',
     next: 'Weiter mit ',
     conditionalExits: 'Je nach Bedingung geht es so weiter:',
     pathEnds: 'Dieser Weg endet hier.',
     processEnds: 'Der gesamte Prozess endet hier sofort.',
     deadEnd: 'Danach ist im Modell kein weiterer Schritt vorgesehen.',
-    subprocessContent: (count: number) =>
-      `Dieser Teilprozess enthält ${plural(count, 'weiteres Element', 'weitere Elemente')}, die in diesem Dokument noch nicht beschrieben sind.`,
+    callInternal: (called: string) => `Dieser Schritt ruft den Prozess „${called}“ auf. Dieser steht ebenfalls in diesem Dokument.`,
     callActivity: (called: string) =>
       called
         ? `Dieser Schritt ruft den Prozess „${called}“ auf. Dessen Inhalt ist nicht Teil dieses Dokuments.`
@@ -91,11 +125,14 @@ export const de = {
     wayLabeled: (label: string) => `Weg: ${label}`,
     way: (number: number) => `Weg ${number}`,
     unlabeledCase: 'Fall ohne Beschriftung',
-    noOwnStep: 'In diesem Fall gibt es keinen eigenen Schritt.',
+    noOwnStepTo: 'In diesem Fall gibt es keinen eigenen Schritt. Weiter mit ',
+    firstEvent: (label: string) => `Wenn zuerst eintritt: ${label}`,
     branchIntro: 'Mehrere dieser Wege können zutreffen.',
+    eventBranchIntro: 'Es geht weiter, sobald das erste dieser Ereignisse eintritt.',
+    subprocessDone: (name: string) => `Damit ist der Teilprozess „${name}“ abgeschlossen.`,
+    compensationHint: 'Wird diese Aufgabe später rückgängig gemacht, gilt der passende Schritt unter „Sonderabläufe“.',
     continuesHere: 'Es geht direkt hier weiter.',
     parallelIntro: 'Diese Wege laufen gleichzeitig.',
-    afterParallel: (number: number) => `Schritt ${number}: Warten, bis alle gleichzeitigen Wege fertig sind`,
     sideCase: (kind: string, name: string) => (name ? `Sonderfall ${kind}: ${name}` : `Sonderfall ${kind}`),
     interrupting: 'Die Aufgabe wird dabei abgebrochen.',
     nonInterrupting: 'Die Aufgabe läuft weiter, zusätzlich passiert Folgendes:',
@@ -107,20 +144,28 @@ export const de = {
       together: 'Danach gemeinsam weiter',
       regular: 'Regulär geht es so weiter',
       'other-start': 'Weiterer Start',
+      special: 'Sonderabläufe',
     },
   },
 
   overview: {
-    summary: (steps: number, tasks: number, decisions: number) =>
-      `Dieser Prozess hat ${plural(steps, 'Schritt', 'Schritte')}, davon ${plural(tasks, 'Aufgabe', 'Aufgaben')} und ${plural(decisions, 'Entscheidung', 'Entscheidungen')}.`,
+    summary: (steps: number, tasks: number, subprocesses: number, decisions: number) =>
+      `Dieser Prozess hat ${plural(steps, 'Schritt', 'Schritte')}, davon ${plural(tasks, 'Aufgabe', 'Aufgaben')}${subprocesses ? `, ${plural(subprocesses, 'Teilprozess', 'Teilprozesse')}` : ''} und ${plural(decisions, 'Entscheidung', 'Entscheidungen')}.`,
     outcomes: 'Mögliche Ergebnisse: ',
-    noOutcomes: 'Das Modell nennt kein ausdrückliches Ende.',
-    readingHelp:
-      'So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte sind durchgehend nummeriert. Wechsel zwischen den Beteiligten und Entscheidungen sind Überschriften, die Fälle einer Entscheidung sind Überschriften eine Ebene tiefer. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion des Browsers wieder an die vorige Stelle.',
+    noOutcomes: 'Das Modell benennt keine Ergebnisse.',
+    readingHelp: (showPools: boolean) =>
+      `So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte sind durchgehend nummeriert. Entscheidungen sind Überschriften, ihre Fälle sind Überschriften eine Ebene tiefer.${showPools ? ' Wechsel zwischen den beteiligten Organisationen sind ebenfalls Überschriften.' : ''} Wer zuständig ist, steht beim Schritt, sobald es wechselt. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion wieder an die vorige Stelle.`,
+    rolesOf: (pool: string) => `Alle gehören zu: ${pool}.`,
     roleExternal: (role: string) => `${role}, externe Stelle`,
     messageBetween: (message: string, from: string, to: string) =>
       message ? `„${message}“ von ${from} an ${to}` : `Nachricht von ${from} an ${to}`,
     generalNote: (text: string) => `Anmerkung: ${text}`,
+  },
+
+  docx: {
+    language: 'de-DE',
+    description: 'Barrierefreie Prozessbeschreibung, erzeugt aus einem BPMN-Modell',
+    creator: 'BPMN barrierefrei',
   },
 
   errors: {
@@ -131,17 +176,18 @@ export const de = {
 
   findings: {
     parserWarning: (message: string) => `Hinweis beim Einlesen: ${message}`,
-    brokenFlow: (id: string) => `Der Sequenzfluss ${id} führt von oder zu einem Element, das hier nicht vorhanden ist. Er fehlt im Dokument.`,
-    missingName: (type: string, id: string) => `Ein Element vom Typ ${type} (${id}) hat keinen Namen.`,
-    unlabeledExit: (id: string, label: string) => `Ein Ausgang (${id}) von „${label}“ hat keine lesbare Beschriftung.`,
-    noStart: (name: string) => `Der Prozess ${name ? `„${name}“ ` : ''}hat kein Startereignis.`,
-    unreachable: (label: string) => `„${label}“ ist vom Start aus nicht erreichbar.`,
+    brokenFlow: (id: string) => `Eine Verbindung (ID ${id}) führt von oder zu einem Element, das hier nicht vorhanden ist. Sie fehlt im Dokument.`,
+    missingName: (type: string, id: string) => `${type} (ID ${id}) hat keinen Namen. Lesende erfahren so nicht, worum es dort geht.`,
+    unlabeledExit: (id: string, source: string) => `Ein Ausgang (ID ${id}) von ${source} hat keine lesbare Beschriftung. Lesende erfahren so nicht, wann dieser Weg gilt.`,
+    duplicateEnd: (name: string) => `Mehrere Enden heißen „${name}“. Lesende erkennen so nicht, welches Ergebnis gemeint ist.`,
+    noStart: (name: string) => `Der Prozess ${name ? `„${name}“ ` : ''}hat kein Startereignis. Der Ablauf beginnt deshalb beim ersten Schritt ohne Vorgänger.`,
+    unreachable: (label: string) => `Zu „${label}“ führt vom Start aus kein Weg. Der Schritt steht am Ende des Ablaufs.`,
     deadEnd: (label: string) => `Nach „${label}“ geht es nicht weiter, obwohl dort kein Endereignis steht.`,
-    implicitSplit: (label: string) => `„${label}“ hat mehrere Ausgänge ohne Gateway. Das liest sich missverständlicher als ein Gateway.`,
-    unsupportedGateway: (label: string, type: string) => `„${label}“ (${type}) wird nur allgemein als Verzweigung beschrieben.`,
-    unsupportedSubprocess: (label: string) => `Der Inhalt von „${label}“ wird noch nicht im Dokument beschrieben.`,
-    unsupportedLink: (label: string) => `Das Verbindungsereignis „${label}“ wird noch nicht mit seinem Gegenstück verknüpft.`,
-    unsupportedGroup: (id: string) => `Die Gruppe ${id} ist nur optisch und erscheint nicht im Dokument.`,
+    implicitSplit: (label: string) => `„${label}“ hat mehrere Ausgänge ohne Gateway. Ein Gateway macht deutlicher, ob die Wege gleichzeitig oder wahlweise gelten.`,
+    unsupportedGateway: (label: string) => `Die Regel von „${label}“ wird nur allgemein als Verzweigung beschrieben.`,
+    externalCall: (label: string) => `„${label}“ ruft einen Prozess auf, der nicht in dieser Datei steht. Sein Inhalt fehlt deshalb im Dokument.`,
+    unlinkedEvent: (label: string) => `Zum Verbindungsereignis „${label}“ gibt es kein Gegenstück mit demselben Namen. Der Weg ist dort unterbrochen.`,
+    unsupportedGroup: (id: string) => `Die Gruppe (ID ${id}) ist nur optisch und erscheint nicht im Dokument.`,
     unconnectedPool: (name: string) =>
       `Keine Nachricht verbindet ${name} mit dem Rest des Modells. Die zeitliche Reihenfolge ist dort nicht festgelegt.`,
   },

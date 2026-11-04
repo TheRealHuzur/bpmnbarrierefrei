@@ -7,10 +7,11 @@
 <title>Urlaubsantrag: Prozessbeschreibung</title>
 <style>
 :root{color-scheme:light dark}
-body{font:1.125rem/1.6 system-ui,sans-serif;max-width:46rem;margin:0 auto;padding:1rem;overflow-wrap:break-word}
+body{background:Canvas;color:CanvasText;font:1.125rem/1.6 system-ui,sans-serif;max-width:46rem;margin:0 auto;padding:1rem;overflow-wrap:break-word}
 h1,h2,h3,h4,h5,h6{line-height:1.25}
 h3{margin-top:2.5rem}
-h4,h5,h6{margin-top:1.75rem}
+h4,h5,h6,[role=heading]{margin-top:1.75rem}
+[role=heading]{font-weight:bold}
 [id]{scroll-margin-top:1rem}
 :target{outline:.2rem solid currentColor;outline-offset:.4rem}
 a{text-decoration:underline;text-underline-offset:.15em}
@@ -24,8 +25,9 @@ li{margin-block:.4rem}
 <h2>Überblick</h2>
 <p>Dieser Prozess hat 11 Schritte, davon 7 Aufgaben und 2 Entscheidungen.</p>
 <p>Mögliche Ergebnisse: Antrag zurückgezogen, Urlaub genehmigt.</p>
-<p>So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte sind durchgehend nummeriert. Wechsel zwischen den Beteiligten und Entscheidungen sind Überschriften, die Fälle einer Entscheidung sind Überschriften eine Ebene tiefer. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion des Browsers wieder an die vorige Stelle.</p>
+<p>So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte sind durchgehend nummeriert. Entscheidungen sind Überschriften, ihre Fälle sind Überschriften eine Ebene tiefer. Wer zuständig ist, steht beim Schritt, sobald es wechselt. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion wieder an die vorige Stelle.</p>
 <h2>Beteiligte</h2>
+<p>Alle gehören zu: Beispiel GmbH.</p>
 <ul>
 <li>Mitarbeitende</li>
 <li>Führungskraft</li>
@@ -52,7 +54,6 @@ li{margin-block:.4rem}
 <h4>Falls Ja</h4>
 <p>Es geht direkt hier weiter.</p>
 <h3 id="s9">Schritt 7: 2 Wege laufen gleichzeitig</h3>
-<p>Diese Wege laufen gleichzeitig.</p>
 <p id="s10"><strong>Schritt 8: Urlaub im Kalender eintragen.</strong> Zuständig: Mitarbeitende.</p>
 <p id="s11"><strong>Schritt 9: Resturlaub aktualisieren.</strong> Zuständig: Personalabteilung. Sendet „Geänderter Resturlaub“ an Lohnbuchhaltung.</p>
 <h3 id="s12">Schritt 10: Warten, bis alle gleichzeitigen Wege fertig sind</h3>
