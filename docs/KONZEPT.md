@@ -1,0 +1,274 @@
+# Konzept und Plan: BPMN barrierefrei
+
+Stand: 4. November 2026. Status: Phase 1 umgesetzt, Hörprobe läuft.
+
+## Ziel
+
+Aus einem BPMN-2.0-Modell entsteht ein Dokument, das Menschen mit Sehbehinderung gut nutzen können: blinde Menschen mit dem Screenreader, andere mit Vergrößerung oder hohem Kontrast. Die Anwendung läuft als Web-Frontend und lässt sich auf dem eigenen Server betreiben, damit der Betrieb DSGVO-konform gestaltet werden kann.
+
+## Rahmenbedingungen
+
+- **Wer nutzt es?** Menschen mit Sehbehinderung. Sie selbst oder ihre Kolleginnen und Kollegen laden die Modelle hoch. Das Frontend muss also für beide Gruppen barrierefrei sein.
+- **Woher kommen die Modelle?** Aus beliebigen Werkzeugen, die BPMN 2.0 exportieren, unter anderem bpmnDESK, Picture und Adonis. Grundlage ist allein der Standard, Sonderwege einzelner Werkzeuge dürfen nicht nötig sein.
+- **Wo läuft es?** Auf dem eigenen Webserver mit Docker, neben der DESK-Suite.
+
+## Die Lösung in Kürze
+
+Die Umwandlung läuft vollständig im Browser. Der eigene Server liefert nur statische Dateien aus, das Modell verlässt den Rechner der Nutzenden nicht. Das ist technisch die einfachste und datenschutzrechtlich die stärkste Variante.
+
+Das Ergebnis ist ein nummeriertes, verlinktes Schritt-Dokument. Der Text entsteht regelbasiert und ohne KI, damit gleiche Modelle immer gleiche Dokumente ergeben und nichts dazuerfunden wird.
+
+## Kernentscheidungen
+
+| Frage | Empfehlung | Begründung |
+| --- | --- | --- |
+| Wo wird umgewandelt? | Im Browser, ohne Backend | Keine Modelle auf dem Server, kaum Angriffsfläche, einfacher Betrieb |
+| Hauptformat | Einzelne HTML-Datei ohne JavaScript | Screenreader unterstützen Überschriften, Listen und Links dort am besten; offline nutzbar |
+| Zweites Format | DOCX mit echten Formatvorlagen | Im Arbeitsalltag verbreitet und gut bearbeitbar |
+| PDF | Vorerst über „Als PDF speichern“ aus Browser oder Word | Getaggtes PDF direkt im Browser zu erzeugen ist aufwendig; siehe Ausbaustufen |
+| Textquelle | Regeln und Vorlagen, keine KI | Reproduzierbar, prüfbar, keine Datenweitergabe, keine erfundenen Inhalte |
+| BPMN-Parser | `bpmn-moddle` (MIT) | Etablierter Parser aus dem bpmn.io-Umfeld, im Spike erfolgreich getestet |
+| DOCX-Erzeugung | `docx` (MIT) | Läuft im Browser und in Node; noch nicht getestet |
+| Frontend | Vite und TypeScript ohne UI-Framework | Eine schlanke Seite braucht kein Framework; weniger Abhängigkeiten |
+| Tests | Vitest, Playwright, axe-core, manuell mit NVDA | Automatik findet nur einen Teil der Barrieren; siehe Qualitätssicherung |
+
+`bpmn-js` wird für den Text nicht gebraucht. Es hat eine eigene Lizenz, die nach meinem Kenntnisstand das sichtbare bpmn.io-Logo verlangt. Das wäre vor einem Einsatz als optionale Vorschau für sehende Autorinnen und Autoren zu prüfen.
+
+## Architektur
+
+Ein einziges npm-Paket mit drei klar getrennten Teilen:
+
+- `src/core`: reine Logik ohne Abhängigkeit vom Browser. Läuft dadurch auch in Tests und in der Kommandozeile.
+- `src/web`: die Oberfläche.
+- `src/cli`: Kommandozeile für Tests und Stapelverarbeitung.
+
+Der Weg durch `src/core` hat vier Stufen:
+
+1. **Einlesen:** BPMN-XML wird mit `bpmn-moddle` geparst.
+2. **Analysieren:** Aus dem Modell entstehen Graph, Rollen und Prüfbefunde.
+3. **Linearisieren:** Der Graph wird zu einem formatunabhängigen Dokumentmodell mit nummerierten Schritten.
+4. **Ausgeben:** Eigene Renderer erzeugen daraus HTML und DOCX.
+
+Das formatunabhängige Dokumentmodell ist die wichtigste Nahtstelle. Es sorgt dafür, dass alle Formate denselben Inhalt haben, und macht spätere Formate wie PDF oder Klartext billig.
+
+## Das Dokument
+
+Der Kern des Problems: BPMN ist ein Graph, den Sehende mit einem Blick überfliegen. Ein Screenreader liest nacheinander. Das Dokument muss deshalb Orientierung und Sprungziele ersetzen, was das Auge sonst leistet.
+
+### Aufbau
+
+1. **Überblick:** Zahl der Schritte, mögliche Ergebnisse, kurze Lesehilfe.
+2. **Beteiligte:** Rollen aus Pools und Lanes, jeweils mit Links zu ihren Aufgaben.
+3. **Ablauf:** Jeder Schritt ist eine Überschrift mit Nummer, Art und Namen. So lässt sich mit der Screenreader-Taste für Überschriften von Schritt zu Schritt springen.
+
+### Beispiel
+
+Auszug aus der Ausgabe des Spikes:
+
+> **Schritt 4, Entscheidung: Antrag genehmigt?**
+>
+> Zuständig: Führungskraft.
+>
+> - Ja: weiter mit Schritt 5: 2 Wege laufen parallel
+> - Nein: weiter mit Schritt 11: Ablehnung begründen
+
+Das vollständige Beispiel liegt unter [beispiel/urlaubsantrag.html](beispiel/urlaubsantrag.html), das Quellmodell unter [beispiel/urlaubsantrag.bpmn](beispiel/urlaubsantrag.bpmn).
+
+### Regeln für die Linearisierung
+
+- **Reihenfolge:** Reverse Postorder ab den Startereignissen. Vorgänger stehen vor Nachfolgern, Zweige bleiben zusammen. Bei gleichrangigen Zweigen entscheidet künftig die Position im Diagramm, damit das Ergebnis stabil bleibt.
+- **Keine unnötigen Ansagen:** Steht nichts anderes da, folgt der nächste Schritt. Nur echte Sprünge werden genannt.
+- **Zusammenführende XOR-Gateways entfallen.** Sie enthalten keine Information für die Lesenden.
+- **Parallele Zusammenführungen bleiben** als eigener Warteschritt, weil dort eine echte Bedingung gilt.
+- **Schleifen und mehrere Zugänge** werden über „Erreichbar von“ mit Link sichtbar.
+- **Grenzereignisse** stehen beim Schritt, an dem sie hängen, zum Beispiel als Frist.
+- **Linktexte tragen immer Kontext**, weil Screenreader Links auch als reine Liste anbieten.
+- **Keine tiefe Verschachtelung.** Der Ablauf bleibt eine flache Liste mit Sprüngen. Das funktioniert auch bei unstrukturierten Modellen, bei denen eine Verschachtelung gar nicht möglich wäre.
+
+### BPMN-Abdeckung
+
+| Element | Darstellung | Phase |
+| --- | --- | --- |
+| Aufgaben, Start und Ende | Eigener Schritt | 1 |
+| XOR- und parallele Gateways | Entscheidung, gleichzeitige Wege, Warten | 1 |
+| Pools und Lanes | Zuständigkeit, Liste der Beteiligten | 1 |
+| Dokumentation, Anmerkungen | Text beim Schritt | 1 |
+| Mehrere Prozesse in einem Modell | Eigener Abschnitt je Prozess | 1 |
+| Grenzereignisse | Mit Art: Frist, Fehler, Nachricht; unterbrechend oder nicht | 1 |
+| Nachrichtenflüsse, Datenobjekte | Satz beim Schritt | 1 |
+| Zwischenereignisse | In Phase 1 mit Art, in Phase 2 mit eigenen Formulierungen für Warten und Auslösen | 1 und 2 |
+| Inklusive und ereignisbasierte Gateways | In Phase 1 allgemein mit Warnung, in Phase 2 mit eigenen Formulierungen | 2 |
+| Teilprozesse, Call Activities | In Phase 1 als Schritt mit Warnung, in Phase 2 als eigener Abschnitt mit Rücksprung | 2 |
+| Verbindungsereignisse (Link) | In Phase 1 mit Warnung, in Phase 2 mit Sprung zum Gegenstück | 2 |
+
+Mehrere Prozesse, Grenzereignisse, Nachrichten und Daten kamen gegenüber dem ersten Plan schon in Phase 1 dazu. Sonst hätte das Dokument bei gängigen Modellen ganze Pools oder Abzweigungen ausgelassen.
+
+### Werkzeugunabhängigkeit
+
+Der Kern verträgt typische Unterschiede zwischen Exporten. Das ist bisher nur mit nachgestellten Dateien getestet, echte Exporte aus bpmnDESK, Picture und Adonis stehen noch aus:
+
+- Beliebige Namensraum-Präfixe (`bpmn:`, `bpmn2:`, `semantic:`, keins) und unbekannte Herstellerfelder.
+- Fehlende Diagrammdaten: Dann gilt die Reihenfolge der Datei, sonst die Position im Diagramm.
+- UTF-8 mit und ohne Byte-Order-Mark, UTF-16, die im XML angegebene Kodierung wie ISO-8859-1.
+- Für das Diagramm umbrochene Namen („Urlaubs-“ und „antrag“ werden wieder ein Wort) und HTML in der Dokumentation.
+- Anmerkungen mit Verbindung in beide Richtungen, Bedingungen statt Beschriftungen, Modelle ohne Startereignis, Aufgaben mit mehreren Ausgängen.
+
+### Lesbarkeit mit Vergrößerung und hohem Kontrast
+
+- Keine festen Farben: Hell- und Dunkelmodus sowie der Hochkontrast des Systems greifen von selbst.
+- Größen in `rem`: Die eingestellte Schriftgröße gilt, der Text bricht beim Vergrößern um.
+- Das Sprungziel wird sichtbar umrandet, damit man es im kleinen vergrößerten Ausschnitt wiederfindet.
+- Links sind immer unterstrichen und nie nur an der Farbe erkennbar.
+
+## Prüfbericht für die Modellierung
+
+Ein Dokument kann nur so gut sein wie die Beschriftung im Modell. Sehende erschließen sich eine unbeschriftete Raute oft aus dem Bild, im Text bleibt dort eine Lücke. Deshalb zeigt die Anwendung vor dem Herunterladen einen Prüfbericht:
+
+- Fehler: nicht lesbare Datei, keine Startereignisse, nicht erreichbare Elemente.
+- Warnungen: Aufgaben ohne Namen, Entscheidungen ohne Frage, unbeschriftete Ausgänge von Entscheidungen, Parser-Warnungen.
+
+Der Prüfbericht ist ein eigener Mehrwert des Werkzeugs: Er macht Modelle für alle besser.
+
+## Web-Frontend
+
+Eine Seite mit vier Schritten: Datei wählen, Prüfbericht lesen, Dokument ansehen, herunterladen.
+
+Das Werkzeug muss selbst barrierefrei sein, denn Menschen mit Sehbehinderung laden die Modelle auch selbst hoch:
+
+- Dateiauswahl über ein normales Formularfeld. Ziehen und Ablegen ist höchstens eine Zusatzfunktion.
+- Statusmeldungen über eine ARIA-Live-Region.
+- Vollständig per Tastatur bedienbar, sichtbarer Fokus, Fokus springt nach der Verarbeitung zum Ergebnis.
+- Orientierung an WCAG 2.1 AA und EN 301 549.
+
+## DSGVO und Betrieb
+
+Die Architektur vermeidet die Verarbeitung von Modellen auf dem Server, ersetzt aber keine rechtliche Prüfung. Konform wird erst der Betrieb insgesamt. Vor dem Produktivstart sollte das die oder der Datenschutzbeauftragte bewerten. Das gilt besonders, wenn Modelle Personennamen enthalten.
+
+**Technisch vorgesehen:**
+
+- Keine externen Ressourcen: kein CDN, keine fremden Schriften, keine Analyse-Werkzeuge, keine Cookies.
+- Eine Content-Security-Policy, die Netzwerkzugriffe des Skripts unterbindet, etwa `default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'`. So ist nicht nur versprochen, dass die Anwendung nichts per Skript hochlädt, der Browser verhindert es auch. Ob der Download über Blob-URLs damit funktioniert, ist in Phase 3 zu testen.
+- Keine Speicherung im Browser, das Modell liegt nur im Arbeitsspeicher der Seite.
+- HTTPS.
+- Webserver-Protokolle ohne vollständige IP-Adressen und mit kurzer Aufbewahrung, denn der Seitenabruf selbst erzeugt weiterhin Daten.
+
+**Organisatorisch zu klären:**
+
+- Impressum und Datenschutzerklärung, sobald die Seite öffentlich erreichbar ist.
+- Auftragsverarbeitungsvertrag mit dem Hoster, sofern der Server nicht selbst betrieben wird.
+
+**Auslieferung:**
+
+- Ein Docker-Image mit einem schlanken Webserver und den statischen Dateien, passend zum Betrieb neben der DESK-Suite.
+- Wie sich das Image dort einfügt (Reverse Proxy, Domain, HTTPS), wird in Phase 5 am vorhandenen Aufbau festgelegt.
+
+## Sicherheit
+
+Hochgeladene Modelle sind nicht vertrauenswürdige Eingaben. Das heruntergeladene HTML öffnet jemand anderes später womöglich auf einem anderen Rechner.
+
+- Alle Texte aus dem Modell werden maskiert. Das HTML enthält kein Skript und eine eigene strenge CSP.
+- Dateigröße und Elementzahl werden begrenzt, damit riesige Dateien den Browser-Tab nicht lahmlegen.
+- Testfälle mit präparierten Modellen gehören zur Testsuite.
+
+## Qualitätssicherung
+
+- **Automatisch:** Snapshot-Tests für Beispielmodelle, Prüfung aller internen Links und der Überschriftenfolge, axe-core für Frontend und erzeugtes Dokument.
+- **Manuell:** NVDA unter Windows als kostenlose Basis, zusätzlich JAWS und VoiceOver, sobald verfügbar. Außerdem 400 % Zoom, Bildschirmlupe und Hochkontrast.
+- **Mit Betroffenen:** Tests mit Menschen mit Sehbehinderung sind der eigentliche Abnahmetest. Automatische Prüfungen sagen, ob ein Dokument technisch korrekt ist, nicht, ob man damit einen Prozess versteht.
+
+## Machbarkeits-Spike
+
+Das HTML im Ordner `docs/beispiel` stammt aus einem Wegwerf-Skript, das bewusst nicht Teil des Repos ist. Es ist eine Hörprobe, kein Produktstand. Die Fassung aus Phase 1 liegt unter `test/snapshots/urlaubsantrag.html`. Dieser Abschnitt beschreibt den Stand vor Phase 1.
+
+**Geprüft:**
+
+- `bpmn-moddle` 10.3.1 liest ein Modell mit 16 Flussknoten, daraus entstehen 14 Schritte, alle erreichbar.
+- Lanes, XOR, Parallelität, Schleife, Timer-Grenzereignis, Nachricht, Datenobjekt und Anmerkung erscheinen im Text.
+- Im Browser: Überschriften ohne Sprünge, 25 von 25 internen Links gültig, keine Konsolenfehler.
+- Präpariertes Modell: Eine externe XML-Entity wird nicht aufgelöst und führt zu einer Parser-Warnung, HTML in Namen wird maskiert.
+- Der Accessibility-Baum deckte Schwächen auf, die behoben wurden: Links ohne Kontext, unnötige Ansagen von Zuständigkeit, überflüssige Regionen.
+
+**Nicht geprüft:**
+
+- Ein echter Durchlauf mit NVDA, JAWS oder VoiceOver und ein Test mit blinden Menschen.
+- Echte Modelle aus Modellierungswerkzeugen, auch große und unstrukturierte.
+- Mehrere Prozesse, Teilprozesse, inklusive Gateways, nicht unterbrechende Grenzereignisse.
+- Ausführung im Browser, DOCX, PDF, die CSP im Frontend, Docker. Auf dem aktuellen Entwicklungsrechner ist Docker nicht installiert.
+
+**Bekannte Schwächen der Hörprobe:**
+
+- Sprachlich holprig: „Schritt 8: bis alle gleichzeitigen Wege abgeschlossen sind“, und nach Fragezeichen folgt ein Punkt („genehmigt?.“).
+- Die Lesehilfe und die Häufigkeit von „Zuständig“ und „Erreichbar von“ sollten nach dem Hörtest neu bewertet werden.
+
+## Plan
+
+Jede Phase endet mit etwas Nutzbarem.
+
+### Phase 0: Hörprobe (läuft)
+
+- Beispiel mit NVDA anhören, Dokumentform bestätigen oder ändern.
+- Echte Modelle sammeln: mindestens je eines aus bpmnDESK, Picture und Adonis.
+- **Fertig, wenn:** Die Dokumentform ist entschieden und die Modelle liegen vor.
+
+### Phase 1: Kern (umgesetzt)
+
+- Projektgerüst: TypeScript und Vitest, Vite kommt mit dem Frontend in Phase 3.
+- Einlesen, Analysieren, Linearisieren, HTML-Ausgabe, Kommandozeile: `npm run convert -- modell.bpmn`.
+- Abdeckung gemäß Tabelle, Sicherheitstests.
+- **Fertig, wenn:** Die Kommandozeile macht aus den Beispielmodellen korrektes HTML und alle Tests laufen.
+- **Stand:** Für das Beispielmodell und die nachgestellten Exporte erfüllt. Der Lauf mit echten Exporten und ein Durchgang mit echtem Screenreader stehen noch aus. Das Beispielmodell ergibt 0 Verstöße in axe-core 4.14, wobei der Farbkontrast von axe nicht auswertbar war, weil das Dokument bewusst keine Farben festlegt. Bei 320 Pixeln Breite gibt es kein horizontales Scrollen.
+
+### Phase 2: Volle Abdeckung und Prüfbericht
+
+- Restliche BPMN-Elemente gemäß Tabelle.
+- Prüfbericht verständlich für Menschen ohne BPMN-Fachwissen, etwa „Startereignis“ statt `bpmn:StartEvent`.
+- Erkenntnisse aus den echten Exporten einarbeiten.
+- **Fertig, wenn:** Echte Modelle laufen ohne Absturz durch und jedes nicht unterstützte Element wird gemeldet statt still übergangen.
+
+### Phase 3: Web-Frontend
+
+- Seite mit Dateiauswahl, Prüfbericht, Vorschau, Download.
+- CSP und automatische Barrierefreiheitstests.
+- **Fertig, wenn:** Der komplette Ablauf funktioniert nur mit Tastatur und NVDA, und die Netzwerkanalyse zeigt keine Übertragung des Modells.
+
+### Phase 4: DOCX
+
+- Zweiter Renderer auf demselben Dokumentmodell, mit echten Überschriften und internen Links.
+- **Fertig, wenn:** Überschriften und Sprünge funktionieren in Word mit NVDA.
+
+### Phase 5: Auslieferung auf dem Server
+
+- Docker-Image, Einbindung neben der DESK-Suite, Anleitung.
+- Sicherheits-Header, Protokollierung, Impressum und Datenschutzerklärung, falls öffentlich.
+- **Fertig, wenn:** Die Anwendung läuft auf dem Server über HTTPS und der Datenschutz-Check ist erledigt.
+
+### Phase 6: Test mit Betroffenen, Version 1.0
+
+- Mit blinden und mit sehbehinderten Menschen testen, die jeweils ihre eigenen Hilfsmittel nutzen.
+- Aufgaben stellen, etwa: „Wer entscheidet über den Antrag, und was passiert bei einer Ablehnung?“
+- Befunde einarbeiten, Version 1.0 veröffentlichen.
+- **Fertig, wenn:** Die Testpersonen können die Fragen ohne Hilfe beantworten.
+
+### Mögliche Ausbaustufen
+
+- **Getaggtes PDF:** Über einen kleinen optionalen Server mit Headless-Chromium und Prüfung mit veraPDF oder PAC. Modelle würden dann den Browser verlassen; das müsste man im Datenschutzkonzept abbilden.
+- **Fehlende Namen direkt ergänzen**, statt zurück ins Modellierungswerkzeug zu müssen.
+- **Sprachliche Glättung mit lokaler KI**, optional und standardmäßig aus, ohne Änderung der Fakten.
+- **Weitere Sprachen.** Die Textvorlagen werden von Anfang an getrennt vom Code gehalten.
+
+## Risiken
+
+| Risiko | Gegenmaßnahme |
+| --- | --- |
+| Schlecht beschriftete Modelle ergeben schlechte Dokumente | Prüfbericht zeigt die Lücken vor dem Download |
+| Große Modelle werden beim Hören unübersichtlich | Früh mit echten Modellen testen; Teilprozesse als Abschnitte |
+| Die Dokumentform passt nicht zur Praxis der Nutzenden | Phase 0 und frühe Tests, das Dokumentmodell erlaubt schnelle Änderungen |
+| Echte Exporte verhalten sich anders als die nachgestellten | Früh echte Dateien aus bpmnDESK, Picture und Adonis testen |
+| Datenschutz wird nur technisch gedacht | Organisatorische Punkte in Phase 5, Bewertung durch Datenschutzbeauftragte |
+
+## Offene Fragen
+
+1. **Testmaterial:** Echte Exporte aus bpmnDESK, Picture und Adonis.
+2. **Testpersonen:** Gibt es Menschen mit Sehbehinderung, die mittesten können?
+3. **Zugang:** Soll die Anwendung öffentlich oder geschützt erreichbar sein?
+4. **Lizenz des Repos:** Bisher ist keine festgelegt.

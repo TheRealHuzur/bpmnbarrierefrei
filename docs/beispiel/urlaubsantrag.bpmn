@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Defs" targetNamespace="urn:beispiel">
+  <bpmn:collaboration id="Collab">
+    <bpmn:participant id="P_Firma" name="Beispiel GmbH" processRef="Proc" />
+    <bpmn:participant id="P_Lohn" name="Lohnbuchhaltung" />
+    <bpmn:messageFlow id="MF1" name="Geänderter Resturlaub" sourceRef="T_Rest" targetRef="P_Lohn" />
+  </bpmn:collaboration>
+  <bpmn:process id="Proc" name="Urlaubsantrag" isExecutable="false">
+    <bpmn:laneSet id="LS">
+      <bpmn:lane id="L_MA" name="Mitarbeitende">
+        <bpmn:flowNodeRef>S</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>M1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_Antrag</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_Neu</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_Kal</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E_Zurueck</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="L_FK" name="Führungskraft">
+        <bpmn:flowNodeRef>T_Pruef</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>B_Frist</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_Ok</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_Ablehn</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="L_HR" name="Personalabteilung">
+        <bpmn:flowNodeRef>T_Vertr</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>PS</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_Rest</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>PJ</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_Best</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E_Ok</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="S" name="Urlaubswunsch entstanden" />
+    <bpmn:exclusiveGateway id="M1" />
+    <bpmn:userTask id="T_Antrag" name="Urlaubsantrag ausfüllen">
+      <bpmn:documentation>Zeitraum und Vertretung angeben.</bpmn:documentation>
+      <bpmn:dataOutputAssociation id="DOA1"><bpmn:targetRef>DO_Antrag</bpmn:targetRef></bpmn:dataOutputAssociation>
+    </bpmn:userTask>
+    <bpmn:dataObjectReference id="DO_Antrag" name="Urlaubsantrag" dataObjectRef="DO" />
+    <bpmn:dataObject id="DO" />
+    <bpmn:userTask id="T_Pruef" name="Antrag prüfen" />
+    <bpmn:boundaryEvent id="B_Frist" name="5 Arbeitstage ohne Rückmeldung" attachedToRef="T_Pruef">
+      <bpmn:timerEventDefinition id="TD1" />
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="T_Vertr" name="Vertretung der Führungskraft informieren" />
+    <bpmn:exclusiveGateway id="G_Ok" name="Antrag genehmigt?" />
+    <bpmn:parallelGateway id="PS" />
+    <bpmn:userTask id="T_Kal" name="Urlaub im Kalender eintragen" />
+    <bpmn:userTask id="T_Rest" name="Resturlaub aktualisieren" />
+    <bpmn:parallelGateway id="PJ" />
+    <bpmn:sendTask id="T_Best" name="Bestätigung versenden" />
+    <bpmn:endEvent id="E_Ok" name="Urlaub genehmigt" />
+    <bpmn:userTask id="T_Ablehn" name="Ablehnung begründen" />
+    <bpmn:exclusiveGateway id="G_Neu" name="Neuen Antrag stellen?" />
+    <bpmn:endEvent id="E_Zurueck" name="Antrag zurückgezogen" />
+    <bpmn:textAnnotation id="A1"><bpmn:text>Vertretungsregelung beachten.</bpmn:text></bpmn:textAnnotation>
+    <bpmn:association id="As1" sourceRef="T_Pruef" targetRef="A1" />
+    <bpmn:sequenceFlow id="f1" sourceRef="S" targetRef="M1" />
+    <bpmn:sequenceFlow id="f2" sourceRef="M1" targetRef="T_Antrag" />
+    <bpmn:sequenceFlow id="f3" sourceRef="T_Antrag" targetRef="T_Pruef" />
+    <bpmn:sequenceFlow id="f4" sourceRef="B_Frist" targetRef="T_Vertr" />
+    <bpmn:sequenceFlow id="f5" sourceRef="T_Vertr" targetRef="T_Pruef" />
+    <bpmn:sequenceFlow id="f6" sourceRef="T_Pruef" targetRef="G_Ok" />
+    <bpmn:sequenceFlow id="f7" name="Ja" sourceRef="G_Ok" targetRef="PS" />
+    <bpmn:sequenceFlow id="f8" name="Nein" sourceRef="G_Ok" targetRef="T_Ablehn" />
+    <bpmn:sequenceFlow id="f9" sourceRef="PS" targetRef="T_Kal" />
+    <bpmn:sequenceFlow id="f10" sourceRef="PS" targetRef="T_Rest" />
+    <bpmn:sequenceFlow id="f11" sourceRef="T_Kal" targetRef="PJ" />
+    <bpmn:sequenceFlow id="f12" sourceRef="T_Rest" targetRef="PJ" />
+    <bpmn:sequenceFlow id="f13" sourceRef="PJ" targetRef="T_Best" />
+    <bpmn:sequenceFlow id="f14" sourceRef="T_Best" targetRef="E_Ok" />
+    <bpmn:sequenceFlow id="f15" sourceRef="T_Ablehn" targetRef="G_Neu" />
+    <bpmn:sequenceFlow id="f16" name="Ja" sourceRef="G_Neu" targetRef="M1" />
+    <bpmn:sequenceFlow id="f17" name="Nein" sourceRef="G_Neu" targetRef="E_Zurueck" />
+  </bpmn:process>
+</bpmn:definitions>
