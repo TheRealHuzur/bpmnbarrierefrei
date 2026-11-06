@@ -30,13 +30,14 @@ h2 {
 h3,
 h4,
 h5,
-h6,
-[role='heading'] {
+h6 {
   margin-top: 1.75rem;
 }
 
-[role='heading'] {
+/* Fette Zeilen im Ablauf: Sie gliedern fürs Auge, sind für den Screenreader aber bewusst keine Überschriften. */
+.abschnitt {
   font-weight: bold;
+  margin-top: 1.75rem;
 }
 
 [id] {
@@ -54,7 +55,6 @@ a {
 }
 
 a:focus-visible,
-button:focus-visible,
 input:focus-visible,
 h2:focus-visible {
   outline: 0.2rem solid currentColor;
@@ -71,14 +71,9 @@ li {
   margin-block: 0.4rem;
 }
 
-button,
 input {
   font: inherit;
   max-width: 100%;
-}
-
-button {
-  padding: 0.5rem 1rem;
 }
 
 label {

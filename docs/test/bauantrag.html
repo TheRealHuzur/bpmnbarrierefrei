@@ -8,10 +8,8 @@
 <style>
 :root{color-scheme:light dark}
 body{background:Canvas;color:CanvasText;font:1.125rem/1.6 system-ui,sans-serif;max-width:46rem;margin:0 auto;padding:1rem;overflow-wrap:break-word}
-h1,h2,h3,h4,h5,h6{line-height:1.25}
-h3{margin-top:2.5rem}
-h4,h5,h6,[role=heading]{margin-top:1.75rem}
-[role=heading]{font-weight:bold}
+h1,h2{line-height:1.25}
+.abschnitt{font-weight:bold;margin-top:1.75rem}
 [id]{scroll-margin-top:1rem}
 :target{outline:.2rem solid currentColor;outline-offset:.4rem}
 a{text-decoration:underline;text-underline-offset:.15em}
@@ -25,7 +23,7 @@ li{margin-block:.4rem}
 <h2>Überblick</h2>
 <p>Dieser Prozess hat 16 Schritte, davon 10 Aufgaben und 2 Entscheidungen.</p>
 <p>Mögliche Ergebnisse: Erinnerung versandt, Vorgang abgeschlossen, Verfahren abgeschlossen.</p>
-<p>So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte sind durchgehend nummeriert. Entscheidungen sind Überschriften, ihre Fälle sind Überschriften eine Ebene tiefer. Wechsel zwischen den beteiligten Organisationen sind ebenfalls Überschriften. Wer zuständig ist, steht beim Schritt, sobald es wechselt. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion wieder an die vorige Stelle.</p>
+<p>So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte sind durchgehend nummeriert. Bei einer Entscheidung steht jeder Fall in einer eigenen Zeile, darunter folgen seine Schritte. Wechsel zwischen den beteiligten Organisationen stehen ebenfalls in einer eigenen Zeile. Wer zuständig ist, steht beim Schritt, sobald es wechselt. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion wieder an die vorige Stelle.</p>
 <h2>Beteiligte</h2>
 <ul>
 <li>Antragstellende Person</li>
@@ -35,38 +33,38 @@ li{margin-block:.4rem}
 <li>Feuerwehr, externe Stelle</li>
 </ul>
 <h2>Ablauf</h2>
-<h3>Beginn bei Antragstellende Person</h3>
+<p class="abschnitt">Beginn bei Antragstellende Person</p>
 <p id="s1"><strong>Start: Bauvorhaben geplant.</strong></p>
 <p id="s2"><strong>Schritt 1: Bauantrag einreichen.</strong> Zuständig: Antragstellende Person. Sendet „Bauantrag“ an Bauamt.</p>
-<h3>Wechsel zu Bauamt</h3>
+<p class="abschnitt">Wechsel zu Bauamt</p>
 <p id="s3"><strong>Schritt 2, Start: Bauantrag eingegangen.</strong> Empfängt „Bauantrag“ von Antragstellende Person.</p>
 <p id="s4"><strong>Schritt 3: Unterlagen auf Vollständigkeit prüfen.</strong> Zuständig: Eingangsstelle. Pflichtunterlagen laut Checkliste abgleichen. Benötigt: Checkliste Bauantrag.</p>
-<h3 id="s5">Schritt 4, Entscheidung: Unterlagen vollständig?</h3>
+<p class="abschnitt" id="s5">Schritt 4, Entscheidung: Unterlagen vollständig?</p>
 <p>Zuständig: Eingangsstelle.</p>
 <p>Hinweis: Die gesetzliche Bearbeitungsfrist läuft ab Vollständigkeit.</p>
-<h4>Falls Nein</h4>
+<p class="abschnitt">Falls Nein</p>
 <p id="s6"><strong>Schritt 5: Fehlende Unterlagen nachfordern.</strong> Zuständig: Eingangsstelle. Danach zurück zu <a href="#s4">Schritt 3: Unterlagen auf Vollständigkeit prüfen</a>.</p>
-<h5>Sonderfall Frist: 14 Tage ohne Antwort</h5>
+<p class="abschnitt">Sonderfall Frist: 14 Tage ohne Antwort</p>
 <p>Die Aufgabe läuft weiter, zusätzlich passiert Folgendes:</p>
 <p id="s7"><strong>Schritt 6: Erinnerung senden.</strong> Zuständig: Eingangsstelle.</p>
 <p id="s8"><strong>Ende: Erinnerung versandt.</strong> Dieser Weg endet hier.</p>
-<h4>Falls Ja</h4>
+<p class="abschnitt">Falls Ja</p>
 <p>Es geht direkt hier weiter.</p>
-<h3 id="s9">Schritt 7: 2 Wege laufen gleichzeitig</h3>
+<p class="abschnitt" id="s9">Schritt 7: 2 Wege laufen gleichzeitig</p>
 <p id="s10"><strong>Schritt 8: Bauordnungsrecht prüfen.</strong> Zuständig: Sachbearbeitung.</p>
 <p id="s11"><strong>Schritt 9: Brandschutz prüfen.</strong> Empfängt „Stellungnahme Brandschutz“ von Feuerwehr.</p>
-<h3 id="s12">Schritt 10: Warten, bis alle gleichzeitigen Wege fertig sind</h3>
-<h3 id="s13">Schritt 11, Entscheidung: Genehmigungsfähig?</h3>
+<p class="abschnitt" id="s12">Schritt 10: Warten, bis alle gleichzeitigen Wege fertig sind</p>
+<p class="abschnitt" id="s13">Schritt 11, Entscheidung: Genehmigungsfähig?</p>
 <p>Zuständig: Sachbearbeitung.</p>
-<h4>Falls Ja</h4>
+<p class="abschnitt">Falls Ja</p>
 <p id="s14"><strong>Schritt 12: Genehmigung erstellen.</strong> Zuständig: Sachbearbeitung.</p>
-<h4>Falls Nein</h4>
+<p class="abschnitt">Falls Nein</p>
 <p id="s15"><strong>Schritt 13: Ablehnung mit Begründung erstellen.</strong> Zuständig: Sachbearbeitung.</p>
-<h3>Danach gemeinsam weiter</h3>
+<p class="abschnitt">Danach gemeinsam weiter</p>
 <p id="s16"><strong>Schritt 14: Bescheid zeichnen.</strong> Zuständig: Amtsleitung. Erzeugt: Bescheid.</p>
 <p id="s17"><strong>Schritt 15: Bescheid versenden.</strong> Zuständig: Eingangsstelle. Sendet „Bescheid“ an Antragstellende Person.</p>
 <p id="s18"><strong>Ende: Vorgang abgeschlossen.</strong> Dieser Weg endet hier.</p>
-<h3>Wechsel zu Antragstellende Person</h3>
+<p class="abschnitt">Wechsel zu Antragstellende Person</p>
 <p id="s19"><strong>Schritt 16, Ereignis: Bescheid erhalten.</strong> Empfängt „Bescheid“ von Bauamt.</p>
 <p id="s20"><strong>Ende: Verfahren abgeschlossen.</strong> Dieser Weg endet hier.</p>
 </main>

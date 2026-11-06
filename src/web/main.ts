@@ -1,7 +1,6 @@
 import { ConvertError, convertBpmn, renderFragment, renderHtml, type ConvertResult, type Finding } from '../core/index.ts';
 import { MAX_INPUT_CHARS } from '../core/parse.ts';
 import { de } from '../core/texts.de.ts';
-import sampleModel from '../../docs/test/bauantrag.bpmn?raw';
 
 const element = <T extends HTMLElement>(id: string): T => {
   const found = document.getElementById(id);
@@ -10,7 +9,6 @@ const element = <T extends HTMLElement>(id: string): T => {
 };
 
 const fileInput = element<HTMLInputElement>('file');
-const sampleButton = element<HTMLButtonElement>('sample');
 const status = element('status');
 const error = element('error');
 const result = element('result');
@@ -139,8 +137,4 @@ fileInput.addEventListener('change', () => {
       error.textContent = 'Die Datei ließ sich nicht lesen.';
     },
   );
-});
-
-sampleButton.addEventListener('click', () => {
-  void convert(sampleModel, 'bauantrag');
 });

@@ -8,10 +8,8 @@
 <style>
 :root{color-scheme:light dark}
 body{background:Canvas;color:CanvasText;font:1.125rem/1.6 system-ui,sans-serif;max-width:46rem;margin:0 auto;padding:1rem;overflow-wrap:break-word}
-h1,h2,h3,h4,h5,h6{line-height:1.25}
-h3{margin-top:2.5rem}
-h4,h5,h6,[role=heading]{margin-top:1.75rem}
-[role=heading]{font-weight:bold}
+h1,h2{line-height:1.25}
+.abschnitt{font-weight:bold;margin-top:1.75rem}
 [id]{scroll-margin-top:1rem}
 :target{outline:.2rem solid currentColor;outline-offset:.4rem}
 a{text-decoration:underline;text-underline-offset:.15em}
@@ -25,28 +23,28 @@ li{margin-block:.4rem}
 <h2>Überblick</h2>
 <p>Dieser Prozess hat 9 Schritte, davon 6 Aufgaben, 1 Teilprozess und 2 Entscheidungen.</p>
 <p>Das Modell benennt keine Ergebnisse.</p>
-<p>So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte sind durchgehend nummeriert. Entscheidungen sind Überschriften, ihre Fälle sind Überschriften eine Ebene tiefer. Wer zuständig ist, steht beim Schritt, sobald es wechselt. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion wieder an die vorige Stelle.</p>
+<p>So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte sind durchgehend nummeriert. Bei einer Entscheidung steht jeder Fall in einer eigenen Zeile, darunter folgen seine Schritte. Wer zuständig ist, steht beim Schritt, sobald es wechselt. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion wieder an die vorige Stelle.</p>
 <h2>Ablauf</h2>
 <p id="s1"><strong>Start: ohne Namen im Modell.</strong></p>
 <p id="s2"><strong>Schritt 1: ohne Namen im Modell.</strong></p>
-<h3 id="s3">Schritt 2: Entscheidung</h3>
-<h4>Fall ohne Beschriftung</h4>
+<p class="abschnitt" id="s3">Schritt 2: Entscheidung</p>
+<p class="abschnitt">Fall ohne Beschriftung</p>
 <p id="s4"><strong>Schritt 3: Aufgabe ohne Fortsetzung.</strong> Danach ist im Modell kein weiterer Schritt vorgesehen.</p>
-<h4>Fall ohne Beschriftung</h4>
+<p class="abschnitt">Fall ohne Beschriftung</p>
 <p>Es geht direkt hier weiter.</p>
-<h3 id="s5">Schritt 4, Teilprozess: Teilprozess mit Inhalt</h3>
+<p class="abschnitt" id="s5">Schritt 4, Teilprozess: Teilprozess mit Inhalt</p>
 <p id="s6"><strong>Start: Innen Start.</strong></p>
 <p id="s7"><strong>Schritt 5: Innen Aufgabe.</strong> Danach ist im Modell kein weiterer Schritt vorgesehen.</p>
 <p>Damit ist der Teilprozess „Teilprozess mit Inhalt“ abgeschlossen.</p>
-<h3 id="s8">Schritt 6, Verzweigung: Welche Prüfungen?</h3>
+<p class="abschnitt" id="s8">Schritt 6, Verzweigung: Welche Prüfungen?</p>
 <p>Mehrere dieser Wege können zutreffen.</p>
-<h4>Weg: A</h4>
+<p class="abschnitt">Weg: A</p>
 <p id="s9"><strong>Schritt 7: Prüfung A.</strong></p>
-<h4>Weg: B</h4>
+<p class="abschnitt">Weg: B</p>
 <p id="s10"><strong>Schritt 8: Prüfung B.</strong></p>
-<h3>Danach gemeinsam weiter</h3>
+<p class="abschnitt">Danach gemeinsam weiter</p>
 <p id="s11"><strong>Ende: ohne Namen im Modell.</strong> Dieser Weg endet hier.</p>
-<h3>Schritte ohne Weg vom Start</h3>
+<p class="abschnitt">Schritte ohne Weg vom Start</p>
 <p id="s12"><strong>Schritt 9: Aufgabe ohne Verbindung.</strong> Zu diesem Schritt führt im Modell kein Weg vom Start aus. Danach ist im Modell kein weiterer Schritt vorgesehen.</p>
 </main>
 </body>

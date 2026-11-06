@@ -7,7 +7,7 @@ Dieser Test ist der eigentliche Abnahmetest. Er zeigt, ob man einen Prozess mit 
 - **Wen:** Ein bis zwei blinde Menschen, die täglich mit Screenreader arbeiten, und ein bis zwei Menschen, die mit Vergrößerung oder hohem Kontrast arbeiten. Mögliche Ansprechpartner sind der Deutsche Blinden- und Sehbehindertenverband und seine Landesvereine sowie die Schwerbehindertenvertretung im eigenen Umfeld.
 - **Womit:** Immer mit den eigenen Hilfsmitteln und Einstellungen der Person, am eigenen Rechner. Das Sprechtempo der Screenreader ist oft sehr hoch, das ist in Ordnung.
 - **Dauer:** Etwa 30 Minuten je Person, gern per Telefon oder Videokonferenz mit geteiltem Ton.
-- **Material:** Die [Testversion](https://therealhuzur.github.io/bpmnbarrierefrei/) und das eingebaute Beispiel „Bauantrag“. Es ist erfunden, es werden also keine echten Daten gebraucht.
+- **Material:** Die [Testversion](https://therealhuzur.github.io/bpmnbarrierefrei/) und die Datei [bauantrag.bpmn](bauantrag.bpmn), die Sie der Person vorab schicken. Das Beispiel ist erfunden, es werden also keine echten Daten gebraucht.
 - **Aufwandsentschädigung:** Sollte angeboten werden, denn Testen ist Arbeit.
 
 ## Ablauf
@@ -17,7 +17,7 @@ Sagen Sie zu Beginn: Getestet wird das Werkzeug, nicht die Person. Jede Schwieri
 ### Teil 1: Die Seite bedienen (10 Minuten)
 
 1. Öffnen Sie die Seite. Was ist das hier, und was kann man damit tun?
-2. Wandeln Sie das Beispiel „Bauantrag“ um.
+2. Wandeln Sie die Datei „bauantrag.bpmn“ um.
 3. Wo steht jetzt das Ergebnis? Ist etwas zu beanstanden?
 4. Laden Sie das Dokument herunter und öffnen Sie es.
 
@@ -38,13 +38,13 @@ Mit dem Dokument, in dem Format, das die Person bevorzugt, und bevorzugt in eige
 
 Die Lösungen stehen in der [Testanleitung](TESTANLEITUNG.md).
 
-**Beobachten:** Wie wird navigiert, über Überschriften, Absätze oder Pfeiltasten? Wo muss zurückgesprungen werden? Welche Frage dauert am längsten?
+**Beobachten:** Wie wird navigiert, über Absätze, Pfeiltasten oder die Suche? Wo muss zurückgesprungen werden? Welche Frage dauert am längsten?
 
 ### Teil 3: Nachgespräch (5 Minuten)
 
 1. Was war am hilfreichsten, was hat am meisten gestört?
 2. Welche Formulierungen waren unklar, welche Ansagen überflüssig?
-3. Sollte jeder Schritt eine eigene Überschrift haben, oder ist das zu viel?
+3. Unter „Ablauf“ gibt es bewusst keine Überschriften, damit keine Ebenen angesagt werden. Fehlen Ihnen dort Sprungmöglichkeiten, oder ist es so angenehmer?
 4. Sollten Wechsel der Zuständigkeit innerhalb einer Organisation stärker hervorgehoben werden?
 5. Welches Format würden Sie im Alltag nutzen: Web, HTML-Datei oder Word?
 6. Würden Sie sich so durch einen echten Prozess Ihrer Arbeit lesen wollen?

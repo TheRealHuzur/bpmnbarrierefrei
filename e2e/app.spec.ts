@@ -35,21 +35,22 @@ test.describe('Umwandlung', () => {
     await expect(heading).toBeFocused();
     await expect(page.locator('#summary')).toHaveText('Die Umwandlung ist abgeschlossen. Der Prüfbericht hat nichts zu beanstanden.');
     const preview = page.locator('#preview');
-    await expect(preview.getByRole('heading', { name: 'Wechsel zu Bauamt' })).toBeVisible();
+    await expect(preview.getByText('Wechsel zu Bauamt', { exact: true })).toBeVisible();
     await expect(preview).toContainText('Schritt 1: Bauantrag einreichen.');
     await expect(preview).toContainText('Falls Nein');
   });
 
-  test('wandelt das Beispiel per Knopf um', async ({ page }) => {
-    await page.getByRole('button', { name: 'Beispiel „Bauantrag“ umwandeln' }).click();
-    await expect(page.getByRole('heading', { name: 'Ergebnis: Bauantrag' })).toBeFocused();
+  test('bietet keinen Beispiel-Knopf an', async ({ page }) => {
+    await expect(page.getByText('Beispiel')).toHaveCount(0);
+    await expect(page.locator('button')).toHaveCount(0);
   });
 
-  test('zeigt im Ablauf der Vorschau keine Aufzählung', async ({ page }) => {
+  test('zeigt im Ablauf der Vorschau weder Aufzählung noch Überschriften', async ({ page }) => {
     await chooseFile(page, 'bauantrag');
     await expect(page.locator('#preview')).toContainText('Schritt 1');
     const html = await page.locator('#preview').innerHTML();
     expect(html.slice(html.indexOf('>Ablauf<'))).not.toMatch(/<(ol|ul|li)\b/);
+    await expect(page.locator('#preview').getByRole('heading')).toHaveText(['Überblick', 'Beteiligte', 'Ablauf']);
   });
 
   test('hält die Überschriftenfolge der ganzen Seite ein', async ({ page }) => {
@@ -232,9 +233,8 @@ test.describe('Barrierefreiheit', () => {
   test('ist vollständig mit der Tastatur bedienbar', async ({ page }) => {
     await page.keyboard.press('Tab');
     await expect(page.locator('#file')).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.locator('#sample')).toBeFocused();
-    await page.keyboard.press('Enter');
+    // Den Dateidialog selbst bedient das Betriebssystem, deshalb wird die Datei hier direkt gesetzt.
+    await chooseFile(page, 'bauantrag');
     await expect(page.locator('#result-heading')).toBeFocused();
     await expect(page.locator('#download-docx')).toBeVisible();
 
@@ -258,8 +258,7 @@ test.describe('Barrierefreiheit', () => {
 
   test('zeigt den Fokus sichtbar an', async ({ page }) => {
     await page.keyboard.press('Tab');
-    await page.keyboard.press('Tab');
-    const outline = await page.locator('#sample').evaluate((button) => getComputedStyle(button).outlineStyle);
+    const outline = await page.locator('#file').evaluate((input) => getComputedStyle(input).outlineStyle);
     expect(outline).toBe('solid');
   });
 });

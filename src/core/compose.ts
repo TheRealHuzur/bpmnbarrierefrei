@@ -5,8 +5,6 @@ import type { Branch, Item, Jump, ModelPlan } from './structure.ts';
 import { clean, plainLines, plainText } from './text.ts';
 import { de } from './texts.de.ts';
 
-const TOP_LEVEL = 3;
-
 const list = (value: unknown): BpmnElement[] => (Array.isArray(value) ? value : []);
 
 /** „Ende: Ende“ wäre nur ein Stottern. */
@@ -135,8 +133,8 @@ function jumpSentence(jump: Jump, afterStep = false): Block {
   return sentence(afterStep ? de.flow.backAfterStep : de.flow.back, ref(jump.target));
 }
 
-/** Diese Bausteine beginnen mit einer eigenen Überschrift. */
-const opensWithHeading = (item: Item | undefined): boolean =>
+/** Diese Bausteine beginnen mit einer eigenen fetten Zeile. */
+const opensWithLabel = (item: Item | undefined): boolean =>
   item !== undefined && item.type !== 'step' && item.type !== 'section';
 
 /** Der vollständige Titel eines Schritts: „Schritt 3: …“, bei Besonderheiten mit deren Art. */
@@ -190,6 +188,14 @@ export interface StepAttachments {
   messages: string[];
 }
 
+/** Enthält der Abschnitt selbst eine Entscheidung oder gleichzeitige Wege? */
+const containsBranching = (items: Item[]): boolean =>
+  items.some((item) => {
+    if (item.type === 'choice' || item.type === 'parallel') return true;
+    if (item.type === 'subprocess') return containsBranching(item.body);
+    return item.type === 'side' && containsBranching(item.body);
+  });
+
 class SequenceWriter {
   private lastRole: string | undefined;
   private lastPool: string | undefined;
@@ -203,7 +209,7 @@ class SequenceWriter {
     this.jumpTargets = jumpTargets;
   }
 
-  /** Bei Überschriften stehen Beschreibungen einfach als Absätze darunter. */
+  /** Unter einer fetten Zeile stehen Beschreibungen einfach als Absätze. */
   private documentation(node: GraphNode): Block[] {
     const { inline, separate } = documentationParts(node.element);
     return [...inline, ...separate];
@@ -221,7 +227,7 @@ class SequenceWriter {
     return blocks;
   }
 
-  /** Die Zuständigkeit wird genannt, wenn sie wechselt, nach jeder Überschrift und bei jedem Sprungziel. */
+  /** Die Zuständigkeit wird genannt, wenn sie wechselt, nach jeder fetten Zeile und bei jedem Sprungziel. */
   private role(node: GraphNode): Block[] {
     if (!node.role || !hasRole(node.kind)) return [];
     if (node.role === this.lastRole && !this.jumpTargets.has(node)) return [];
@@ -229,9 +235,10 @@ class SequenceWriter {
     return [sentence(de.steps.role(node.role))];
   }
 
-  private heading(level: number, text: string, anchor?: number): Block {
+  /** Eine fett gesetzte Zeile. Überschriften wären hier zu laut, weil der Screenreader jedes Mal die Ebene ansagt. */
+  private label(text: string, anchor?: number): Block {
     this.lastRole = undefined;
-    return { type: 'heading', level, text, ...(anchor === undefined ? {} : { anchor }) };
+    return { type: 'label', text, ...(anchor === undefined ? {} : { anchor }) };
   }
 
   private stepBlocks(node: GraphNode, jump: Jump | undefined): Block[] {
@@ -255,10 +262,10 @@ class SequenceWriter {
     return [step(toInlines(before)), ...separate, ...(after.length ? [{ type: 'paragraph', content: after } as Block] : [])];
   }
 
-  private side({ element, exits }: BoundaryInfo, body: Item[], jumps: Jump[], level: number): Block[] {
+  private side({ element, exits }: BoundaryInfo, body: Item[], jumps: Jump[]): Block[] {
     const kind = eventKindOf(element) ?? de.genericEventKind;
     const interrupting = element.cancelActivity !== false;
-    const out: Block[] = [this.heading(level, de.flow.sideCase(kind, clean(element.name)))];
+    const out: Block[] = [this.label(de.flow.sideCase(kind, clean(element.name)))];
     const texts = documentationOf(element).map((doc) => sentence(doc));
     const hasWayOn = exits.length > 0;
     // Eine Kompensation unterbricht nichts: Sie verweist auf den Ausgleich, falls die Aufgabe später rückgängig gemacht wird.
@@ -268,17 +275,20 @@ class SequenceWriter {
     }
     out.push(sentence(interrupting ? de.flow.interrupting : hasWayOn ? de.flow.nonInterrupting : de.flow.nonInterruptingNoExit), ...texts);
     if (interrupting && !hasWayOn) out.push(sentence(de.steps.deadEnd));
-    out.push(...this.write(body, level + 1), ...jumps.map((jump) => jumpSentence(jump)));
+    out.push(...this.write(body), ...jumps.map((jump) => jumpSentence(jump)));
     return out;
   }
 
-  private branches(node: GraphNode, branches: Branch[], level: number, parallel: boolean, nextIsStep: boolean): Block[] {
+  private branches(node: GraphNode, branches: Branch[], parallel: boolean, nextIsStep: boolean): Block[] {
     return branches.flatMap((branch, index) => {
       if (parallel && branch.body.length === 0 && !branch.jump) return [];
-      const out: Block[] = [this.heading(level, branchTitle(node, branch, index, parallel))];
+      // Ohne Überschriftenebenen wäre nach einer inneren Entscheidung unklar, wozu dieser Fall gehört.
+      const title = branchTitle(node, branch, index, parallel);
+      const followsNested = node.number > 0 && branches.slice(0, index).some((earlier) => containsBranching(earlier.body));
+      const out: Block[] = [this.label(followsNested ? de.flow.caseOf(title, node.number) : title)];
       // Folgt direkt ein Schritt, ist klar, dass es hier weitergeht.
       if (branch.continues) return nextIsStep ? out : [...out, sentence(de.flow.continuesHere)];
-      out.push(...this.write(branch.body, level + 1));
+      out.push(...this.write(branch.body));
       if (branch.jump) out.push(jumpSentence(branch.jump));
       if (branch.fallsTo) {
         // Beim letzten Fall folgt das Ziel direkt darunter, sonst überspringt man die anderen Fälle: Das ist ein echter Sprung.
@@ -289,30 +299,30 @@ class SequenceWriter {
     });
   }
 
-  /** Wechsel zwischen Pools sind die Schnittstellen des Prozesses und deshalb Überschriften. */
-  private poolChange(item: Item, level: number): Block[] {
+  /** Wechsel zwischen Pools sind die Schnittstellen des Prozesses und bekommen deshalb eine eigene Zeile. */
+  private poolChange(item: Item): Block[] {
     const pool = nodeOfItem(item)?.pool;
     if (!this.showPools || !pool || pool === this.lastPool) return [];
     const text = this.lastPool === undefined ? de.flow.beginAt(pool) : de.flow.changeTo(pool);
     this.lastPool = pool;
-    return [this.heading(level, text)];
+    return [this.label(text)];
   }
 
-  write(items: Item[], level: number): Block[] {
+  write(items: Item[]): Block[] {
     const out: Block[] = [];
 
     for (const [index, item] of items.entries()) {
       const next = items[index + 1];
-      out.push(...this.poolChange(item, level));
+      out.push(...this.poolChange(item));
       switch (item.type) {
         case 'step':
           out.push(...this.stepBlocks(item.node, item.jump));
           break;
         case 'subprocess': {
-          out.push(this.heading(level, stepTitle(item.node), item.node.anchor), ...this.role(item.node), ...this.documentation(item.node), ...this.details(item.node));
-          out.push(...this.write(item.body, level + 1));
+          out.push(this.label(stepTitle(item.node), item.node.anchor), ...this.role(item.node), ...this.documentation(item.node), ...this.details(item.node));
+          out.push(...this.write(item.body));
           if (item.detached.length) {
-            out.push(this.heading(level + 1, de.flow.unreachable), ...this.write(item.detached, level + 1));
+            out.push(this.label(de.flow.unreachable), ...this.write(item.detached));
           }
           out.push(sentence(de.flow.subprocessDone(item.node.label)));
           this.lastRole = undefined;
@@ -320,17 +330,17 @@ class SequenceWriter {
           break;
         }
         case 'choice': {
-          // Bei einem Teilprozess hat der Schritt seine Überschrift schon.
-          if (!item.node.child) out.push(this.heading(level, stepTitle(item.node), item.node.anchor), ...this.role(item.node), ...this.documentation(item.node), ...this.details(item.node));
+          // Bei einem Teilprozess hat der Schritt seine Zeile schon.
+          if (!item.node.child) out.push(this.label(stepTitle(item.node), item.node.anchor), ...this.role(item.node), ...this.documentation(item.node), ...this.details(item.node));
           if (item.node.kind === 'branch') out.push(sentence(de.flow.branchIntro));
           else if (item.node.kind === 'event-branch') out.push(sentence(de.flow.eventBranchIntro));
           else if (item.node.kind !== 'decision') out.push(sentence(de.steps.conditionalExits));
-          out.push(...this.branches(item.node, item.branches, level + 1, false, next?.type === 'step'));
+          out.push(...this.branches(item.node, item.branches, false, next?.type === 'step'));
           break;
         }
         case 'parallel': {
           if (item.node.kind !== 'join-split' && !item.node.child) {
-            out.push(this.heading(level, stepTitle(item.node), item.node.anchor), ...this.role(item.node), ...this.documentation(item.node), ...this.details(item.node));
+            out.push(this.label(stepTitle(item.node), item.node.anchor), ...this.role(item.node), ...this.documentation(item.node), ...this.details(item.node));
           }
           // Ein erzeugter Titel sagt es schon: „2 Wege laufen gleichzeitig“.
           if (!item.node.labelIsGenerated) out.push(sentence(de.flow.parallelIntro));
@@ -339,17 +349,17 @@ class SequenceWriter {
           );
           if (simple) {
             this.lastRole = undefined;
-            out.push(...this.write(item.branches.flatMap((branch) => branch.body), level));
+            out.push(...this.write(item.branches.flatMap((branch) => branch.body)));
           } else {
-            out.push(...this.branches(item.node, item.branches, level + 1, true, false));
+            out.push(...this.branches(item.node, item.branches, true, false));
           }
           break;
         }
         case 'side':
-          out.push(...this.side(item.boundary, item.body, item.jumps, level));
+          out.push(...this.side(item.boundary, item.body, item.jumps));
           break;
         case 'join': {
-          out.push(this.heading(level, stepTitle(item.node), item.node.anchor), ...this.documentation(item.node), ...this.details(item.node));
+          out.push(this.label(stepTitle(item.node), item.node.anchor), ...this.documentation(item.node), ...this.details(item.node));
           if (!item.absorbed) {
             const waits = item.node.entries.filter((entry) => entry !== item.node);
             const inclusive = item.node.element.$instanceOf('bpmn:InclusiveGateway');
@@ -359,22 +369,22 @@ class SequenceWriter {
           break;
         }
         case 'section':
-          // Direkt vor einer anderen Überschrift bliebe dieser Abschnitt leer. Die Sonderabläufe gliedern aber mehrere Schritte.
-          if (item.section === 'special' || (!opensWithHeading(next) && !(next && this.showPools && nodeOfItem(next)?.pool !== this.lastPool))) {
-            out.push(this.heading(level, de.flow.sections[item.section]));
+          // Direkt vor einer anderen fetten Zeile bliebe dieser Abschnitt leer. Die Sonderabläufe gliedern aber mehrere Schritte.
+          if (item.section === 'special' || (!opensWithLabel(next) && !(next && this.showPools && nodeOfItem(next)?.pool !== this.lastPool))) {
+            out.push(this.label(de.flow.sections[item.section]));
           }
           break;
         case 'later': {
           const entries = item.node.entries.filter((entry) => entry !== item.node).sort((a, b) => a.anchor - b.anchor);
           // Der Name folgt direkt darunter beim Schritt selbst.
-          out.push(this.heading(level, de.flow.later(item.node.number ? de.steps.short(item.node.number) : refText(item.node))));
+          out.push(this.label(de.flow.later(item.node.number ? de.steps.short(item.node.number) : refText(item.node))));
           if (entries.length) out.push(sentence(de.flow.comesFrom, plainList(entries)));
           break;
         }
         case 'unconnected': {
           const name = item.node.pool ?? de.labels.unnamed;
           this.lastPool = item.node.pool;
-          out.push(this.heading(level, de.flow.unconnected(name)), sentence(de.flow.unconnectedNote));
+          out.push(this.label(de.flow.unconnected(name)), sentence(de.flow.unconnectedNote));
           break;
         }
       }
@@ -433,9 +443,9 @@ export function composeDocument(input: ComposeInput): ProcessDocument {
     .flatMap((graph) => generalNotes.get(graph) ?? [])
     .map((note) => ({ type: 'paragraph', content: [de.overview.generalNote(note)] }));
   const writer = new SequenceWriter(attachments, showPools, collectJumpTargets([...plan.main, ...plan.unreachable]));
-  const flow: Block[] = [...notes, ...writer.write(plan.main, TOP_LEVEL)];
+  const flow: Block[] = [...notes, ...writer.write(plan.main)];
   if (plan.unreachable.length) {
-    flow.push({ type: 'heading', level: TOP_LEVEL, text: de.flow.unreachable }, ...writer.write(plan.unreachable, TOP_LEVEL));
+    flow.push({ type: 'label', text: de.flow.unreachable }, ...writer.write(plan.unreachable));
   }
 
   return {

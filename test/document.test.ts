@@ -30,7 +30,7 @@ function expectEveryStepOnce(html: string, namedIds: string[]): void {
   const ids = stepIds(html);
   expect(ids).toEqual(Array.from({ length: ids.length }, (_, index) => index + 1));
   for (const id of namedIds) {
-    const placed = html.match(new RegExp(`<strong>[^<]*Element ${id}\\.</strong>|: Element ${id}</h\\d>|: Element ${id}</div>`, 'g'));
+    const placed = html.match(new RegExp(`<strong>[^<]*Element ${id}\\.</strong>|: Element ${id}</p>`, 'g'));
     expect(placed, `Element ${id}`).toHaveLength(1);
   }
 }
@@ -43,7 +43,7 @@ describe('Zweige unter der Entscheidung', () => {
           named('j', 'Ja', 'G', 'A') + named('n', 'Nein', 'G', 'B') + flows('S>G', 'A>M', 'B>M', 'M>Z', 'Z>E'),
       ),
     );
-    expect(text).toContain('### Schritt 1, Entscheidung: Passt das?\n#### Falls Ja\nSchritt 2: A.\n#### Falls Nein\nSchritt 3: B.\n### Danach gemeinsam weiter\nSchritt 4: Z.');
+    expect(text).toContain('Schritt 1, Entscheidung: Passt das?\nFalls Ja\nSchritt 2: A.\nFalls Nein\nSchritt 3: B.\nDanach gemeinsam weiter\nSchritt 4: Z.');
     expect(links).toBe(0);
   });
 
@@ -54,7 +54,7 @@ describe('Zweige unter der Entscheidung', () => {
           named('n', 'Nein', 'G', 'E1') + named('j', 'Ja', 'G', 'A') + flows('S>G', 'A>B', 'B>E2'),
       ),
     );
-    expect(text).toContain('#### Falls Nein\nEnde: Abbruch. Dieser Weg endet hier.\n#### Falls Ja\nSchritt 2: A.\nSchritt 3: B.\nEnde: Fertig.');
+    expect(text).toContain('Falls Nein\nEnde: Abbruch. Dieser Weg endet hier.\nFalls Ja\nSchritt 2: A.\nSchritt 3: B.\nEnde: Fertig.');
     expect(links).toBe(0);
   });
 
@@ -65,7 +65,7 @@ describe('Zweige unter der Entscheidung', () => {
           named('n', 'Nein', 'G', 'E1') + named('j', 'Ja', 'G', 'H') + named('x', 'X', 'H', 'A') + named('y', 'Y', 'H', 'B') + flows('S>G'),
       ),
     );
-    expect(text).toContain('#### Falls Ja\nEs geht direkt hier weiter.\n### Schritt');
+    expect(text).toContain('Falls Ja\nEs geht direkt hier weiter.\nSchritt');
   });
 
   it('lässt „Regulär geht es so weiter“ weg, wenn direkt eine Überschrift folgt', async () => {
@@ -77,7 +77,7 @@ describe('Zweige unter der Entscheidung', () => {
       ),
     );
     expect(text).not.toContain('Regulär geht es so weiter');
-    expect(text).toContain('### Schritt');
+    expect(text).toContain('Schritt');
   });
 
   it('nutzt für Rücksprünge einen Link und sagt „zurück“', async () => {
@@ -99,7 +99,7 @@ describe('Zweige unter der Entscheidung', () => {
           '<bpmn:sequenceFlow id="d" sourceRef="G" targetRef="B" />' + named('j', 'Ja', 'G', 'A') + flows('S>G', 'A>M', 'B>M', 'M>E'),
       ),
     );
-    expect(text).toMatch(/#### Falls Ja[\s\S]*#### Sonst/);
+    expect(text).toMatch(/Falls Ja[\s\S]*Sonst/);
   });
 
   it('stellt einen leeren Fall ausdrücklich dar', async () => {
@@ -109,7 +109,7 @@ describe('Zweige unter der Entscheidung', () => {
           named('j', 'Ja', 'G', 'A') + named('n', 'Nein', 'G', 'M') + flows('S>G', 'A>M', 'M>E'),
       ),
     );
-    expect(text).toContain('#### Falls Nein\nIn diesem Fall gibt es keinen eigenen Schritt.');
+    expect(text).toContain('Falls Nein\nIn diesem Fall gibt es keinen eigenen Schritt.');
   });
 
   it('kommt mit zwei Flüssen zum selben Ziel zurecht', async () => {
@@ -136,12 +136,12 @@ describe('Gleichzeitige Wege', () => {
           flows('S>PS', 'PS>A', 'PS>B', 'A>PJ', 'B>PJ', 'PJ>Z', 'Z>E'),
       ),
     );
-    expect(text).toContain('### Schritt 1: 2 Wege laufen gleichzeitig\nSchritt 2: A.\nSchritt 3: B.\n### Schritt 4: Warten, bis alle gleichzeitigen Wege fertig sind\nSchritt 5: Z.');
+    expect(text).toContain('Schritt 1: 2 Wege laufen gleichzeitig\nSchritt 2: A.\nSchritt 3: B.\nSchritt 4: Warten, bis alle gleichzeitigen Wege fertig sind\nSchritt 5: Z.');
   });
 
   it('gibt mehrschrittigen Wegen eigene Überschriften', async () => {
     const { text, html } = await convert(parallel('A'));
-    expect(text).toMatch(/#### Weg 1\nSchritt \d+: A\.\nSchritt \d+: A2\.\n#### Weg 2\nSchritt \d+: B\./);
+    expect(text).toMatch(/Weg 1\nSchritt \d+: A\.\nSchritt \d+: A2\.\nWeg 2\nSchritt \d+: B\./);
     expectValidDocument(html);
   });
 });
@@ -156,8 +156,8 @@ describe('Sonderfälle an Aufgaben', () => {
 
   it('trennt Sonderfall und regulären Weg', async () => {
     const { text } = await convert(withBoundary('', 'Nach', 'Nach>E'));
-    expect(text).toMatch(/### Sonderfall Frist: Zu spät\nDie Aufgabe wird dabei abgebrochen\.\nSchritt \d+: Nach\./);
-    expect(text).toContain('### Regulär geht es so weiter');
+    expect(text).toMatch(/Sonderfall Frist: Zu spät\nDie Aufgabe wird dabei abgebrochen\.\nSchritt \d+: Nach\./);
+    expect(text).toContain('Regulär geht es so weiter');
   });
 
   it('nennt nicht unterbrechende Fälle als zusätzlich', async () => {
@@ -223,9 +223,9 @@ describe('Ein chronologischer Ablauf über alle Pools', () => {
   it('folgt der Unterhaltung zwischen den Pools', async () => {
     const { text, html, links } = await convert(conversation('kunde'));
     expectInOrder(text, [
-      '### Beginn bei Kunde', 'Bedarf', 'Anfrage senden', 'Sendet „Anfrage“ an Amt',
-      '### Wechsel zu Amt', 'Anfrage da', 'Empfängt „Anfrage“ von Kunde', 'Antwort senden', 'Sendet „Antwort“ an Kunde',
-      '### Wechsel zu Kunde', 'Antwort da', 'Empfängt „Antwort“ von Amt', 'Antwort lesen', 'Erledigt',
+      'Beginn bei Kunde', 'Bedarf', 'Anfrage senden', 'Sendet „Anfrage“ an Amt',
+      'Wechsel zu Amt', 'Anfrage da', 'Empfängt „Anfrage“ von Kunde', 'Antwort senden', 'Sendet „Antwort“ an Kunde',
+      'Wechsel zu Kunde', 'Antwort da', 'Empfängt „Antwort“ von Amt', 'Antwort lesen', 'Erledigt',
     ]);
     expect(links).toBe(0);
     expectValidDocument(html);
@@ -233,7 +233,7 @@ describe('Ein chronologischer Ablauf über alle Pools', () => {
 
   it('beginnt beim Auslöser, auch wenn der Pool in der Datei später steht', async () => {
     const { text } = await convert(conversation('amt'));
-    expect(text).toContain('### Beginn bei Kunde');
+    expect(text).toContain('Beginn bei Kunde');
     expectInOrder(text, ['Bedarf', 'Anfrage senden', 'Anfrage da', 'Antwort senden', 'Antwort da']);
   });
 
@@ -266,7 +266,7 @@ describe('Ein chronologischer Ablauf über alle Pools', () => {
           process('K', '<bpmn:startEvent id="SK" name="Bedarf" />' + task('K1', 'Senden') + flowsIn('k', 'SK>K1')),
       ),
     );
-    expectInOrder(text, ['### Beginn bei Kunde', 'Senden', 'Sendet „Anfrage“ an Amt', '### Wechsel zu Amt', 'Eingang', 'Empfängt „Anfrage“ von Kunde', 'Bearbeiten']);
+    expectInOrder(text, ['Beginn bei Kunde', 'Senden', 'Sendet „Anfrage“ an Amt', 'Wechsel zu Amt', 'Eingang', 'Empfängt „Anfrage“ von Kunde', 'Bearbeiten']);
     expect(codes).not.toContain('unconnected-pool');
   });
 
@@ -295,7 +295,7 @@ describe('Ein chronologischer Ablauf über alle Pools', () => {
           process('A', '<bpmn:startEvent id="SA" name="Eingang" />' + task('A1', 'Bearbeiten') + flowsIn('a', 'SA>A1')),
       ),
     );
-    expect(text).toContain('### Weiterer Teil: Amt\nDas Modell verbindet diesen Teil nicht mit dem vorigen. Die zeitliche Reihenfolge ist deshalb nicht festgelegt.');
+    expect(text).toContain('Weiterer Teil: Amt\nDas Modell verbindet diesen Teil nicht mit dem vorigen. Die zeitliche Reihenfolge ist deshalb nicht festgelegt.');
     expect(text).not.toContain('Wechsel zu');
     expect(codes).toContain('unconnected-pool');
     expectValidDocument(html);
@@ -319,7 +319,7 @@ describe('Ein chronologischer Ablauf über alle Pools', () => {
 describe('Vollständigkeit', () => {
   it('führt Elemente ohne Weg vom Start in einem eigenen Abschnitt', async () => {
     const { text, html } = await convert(model(start + task('A') + task('Insel') + flows('S>A')));
-    expect(text).toContain('### Schritte ohne Weg vom Start\nSchritt 2: Insel. Zu diesem Schritt führt im Modell kein Weg vom Start aus.');
+    expect(text).toContain('Schritte ohne Weg vom Start\nSchritt 2: Insel. Zu diesem Schritt führt im Modell kein Weg vom Start aus.');
     expectValidDocument(html);
   });
 
@@ -333,7 +333,7 @@ describe('Vollständigkeit', () => {
     expectValidDocument(html);
   });
 
-  it('wandelt sehr tiefe Verschachtelung in hervorgehobene Absätze um', async () => {
+  it('bleibt bei sehr tiefer Verschachtelung ohne Überschriften gültig', async () => {
     // Rauten in Rauten: Weil jede wieder zusammenläuft, kann kein Zweig flach weiterlaufen.
     const depth = 5;
     let body = start + end();
@@ -349,9 +349,8 @@ describe('Vollständigkeit', () => {
     }
     const { html } = await convert(model(body + labelled + flows(...edges)));
     expectValidDocument(html);
-    expect(html).toMatch(/<div role="heading" aria-level="7" id="s\d+">Schritt \d+, Entscheidung: Frage \d\?<\/div>/);
-    expect(html).toContain('<h6>Falls Links</h6>');
-    expect(html).not.toMatch(/<h[7-9]/);
+    expect(html.slice(html.indexOf('<h2>Ablauf'))).not.toMatch(/<h[3-6]|role="heading"/);
+    expect(html).toMatch(/<p class="abschnitt" id="s\d+">Schritt \d+, Entscheidung: Frage 4\?<\/p>/);
     expect(stepIds(html)).toHaveLength(2 + depth * 3);
   });
 
@@ -491,20 +490,20 @@ describe('Beispiele', () => {
     expect(links).toBe(1);
     expectValidDocument(html);
     expect(text).toContain('Dieser Prozess hat 16 Schritte, davon 10 Aufgaben und 2 Entscheidungen.');
-    expect(text).toContain('### Beginn bei Antragstellende Person\nStart: Bauvorhaben geplant.\nSchritt 1: Bauantrag einreichen.');
-    expect(text).toContain('Sendet „Bauantrag“ an Bauamt.\n### Wechsel zu Bauamt\nSchritt 2, Start: Bauantrag eingegangen. Empfängt „Bauantrag“ von Antragstellende Person.');
+    expect(text).toContain('Beginn bei Antragstellende Person\nStart: Bauvorhaben geplant.\nSchritt 1: Bauantrag einreichen.');
+    expect(text).toContain('Sendet „Bauantrag“ an Bauamt.\nWechsel zu Bauamt\nSchritt 2, Start: Bauantrag eingegangen. Empfängt „Bauantrag“ von Antragstellende Person.');
     expect(text).toContain('Schritt 3: Unterlagen auf Vollständigkeit prüfen. Zuständig: Eingangsstelle.');
-    expect(text).toMatch(/#### Falls Nein\nSchritt 5: Fehlende Unterlagen nachfordern\.[^\n]*Danach zurück zu Schritt 3/);
+    expect(text).toMatch(/Falls Nein\nSchritt 5: Fehlende Unterlagen nachfordern\.[^\n]*Danach zurück zu Schritt 3/);
     expect(text).toContain('Die Aufgabe läuft weiter, zusätzlich passiert Folgendes:\nSchritt 6: Erinnerung senden.');
     expect(text).toContain('Schritt 8: Bauordnungsrecht prüfen.');
     expect(text).toContain('Schritt 9: Brandschutz prüfen.');
     expect(text).toContain('Schritt 10: Warten, bis alle gleichzeitigen Wege fertig sind');
-    expect(text).toContain('#### Falls Ja\nSchritt 12: Genehmigung erstellen.');
-    expect(text).toContain('#### Falls Nein\nSchritt 13: Ablehnung mit Begründung erstellen.');
-    expect(text).toContain('### Danach gemeinsam weiter\nSchritt 14: Bescheid zeichnen. Zuständig: Amtsleitung.');
+    expect(text).toContain('Falls Ja\nSchritt 12: Genehmigung erstellen.');
+    expect(text).toContain('Falls Nein\nSchritt 13: Ablehnung mit Begründung erstellen.');
+    expect(text).toContain('Danach gemeinsam weiter\nSchritt 14: Bescheid zeichnen. Zuständig: Amtsleitung.');
     expect(text).toContain('von Feuerwehr');
     expect(text).toContain('Schritt 15: Bescheid versenden. Zuständig: Eingangsstelle. Sendet „Bescheid“ an Antragstellende Person.');
-    expect(text).toContain('### Wechsel zu Antragstellende Person\nSchritt 16, Ereignis: Bescheid erhalten. Empfängt „Bescheid“ von Bauamt.\nEnde: Verfahren abgeschlossen.');
+    expect(text).toContain('Wechsel zu Antragstellende Person\nSchritt 16, Ereignis: Bescheid erhalten. Empfängt „Bescheid“ von Bauamt.\nEnde: Verfahren abgeschlossen.');
     await expect(html).toMatchFileSnapshot('../docs/test/bauantrag.html');
   });
 
@@ -586,7 +585,7 @@ describe('Befunde aus echten Modellen', () => {
           task('A') + task('B') + named('x', 'X', 'G', 'A') + named('y', 'Y', 'G', 'B') + flows('S>G'),
       ),
     );
-    expect(text).toContain('### Schritt 1, Entscheidung: Frage?\nErste Zeile\nZweite Zeile\n#### Falls X');
+    expect(text).toContain('Schritt 1, Entscheidung: Frage?\nErste Zeile\nZweite Zeile\nFalls X');
     expectValidDocument(html);
   });
 
@@ -597,7 +596,7 @@ describe('Befunde aus echten Modellen', () => {
           named('n', 'Vorhanden', 'G', 'M') + named('j', 'Fehlt', 'G', 'A') + flows('S>G', 'A>M', 'M>Z'),
       ),
     );
-    expect(skipping.text).toContain('#### Falls Vorhanden\nIn diesem Fall gibt es keinen eigenen Schritt. Weiter mit Schritt 3: Z.');
+    expect(skipping.text).toContain('Falls Vorhanden\nIn diesem Fall gibt es keinen eigenen Schritt. Weiter mit Schritt 3: Z.');
     expect(skipping.links).toBe(1);
 
     const last = await convert(
@@ -606,7 +605,7 @@ describe('Befunde aus echten Modellen', () => {
           named('j', 'Fehlt', 'G', 'A') + named('n', 'Vorhanden', 'G', 'M') + flows('S>G', 'A>M', 'M>Z'),
       ),
     );
-    expect(last.text).toContain('#### Falls Vorhanden\nIn diesem Fall gibt es keinen eigenen Schritt. Weiter mit Schritt 3: Z.');
+    expect(last.text).toContain('Falls Vorhanden\nIn diesem Fall gibt es keinen eigenen Schritt. Weiter mit Schritt 3: Z.');
     expect(last.links).toBe(0);
   });
 
@@ -614,7 +613,7 @@ describe('Befunde aus echten Modellen', () => {
     const { text, findings } = await convert(
       model(start + '<bpmn:exclusiveGateway id="G" />' + task('A') + task('B') + named('x', 'Bekannt', 'G', 'A') + named('y', 'Neu', 'G', 'B') + flows('S>G')),
     );
-    expect(text).toContain('### Schritt 1: Entscheidung\n#### Falls Bekannt');
+    expect(text).toContain('Schritt 1: Entscheidung\nFalls Bekannt');
     expect(text).not.toContain('ohne Namen');
     expect(findings.map((finding) => finding.message).join(' ')).toContain('Eine Entscheidung (ID G) hat keinen Namen.');
   });
@@ -633,7 +632,7 @@ describe('Befunde aus echten Modellen', () => {
           flows('S>G', 'G>B', 'G>A'),
       ),
     );
-    expect(text).toContain('#### Wenn zuerst eintritt: Zwei Wochen sind verstrichen');
+    expect(text).toContain('Wenn zuerst eintritt: Zwei Wochen sind verstrichen');
     expect(text).not.toContain('Falls Zwei Wochen');
   });
 
@@ -698,7 +697,7 @@ describe('Befunde aus echten Modellen', () => {
     );
     const link = /<a [^>]*>([^<]*)<\/a>/.exec(html)?.[1];
     expect(link).toMatch(/^Schritt \d+: Warten, bis alle gleichzeitigen Wege fertig sind$/);
-    expect(text).toContain(`### ${link}`);
+    expect(text).toContain(`${link}`);
   });
 
   it('zählt ereignisbasierte Gateways nicht als Entscheidungen und Teilprozesse getrennt', async () => {
@@ -718,7 +717,7 @@ describe('Befunde aus echten Modellen', () => {
     expect(single.text).not.toContain('Organisationen');
     expect(single.text).toContain('Wer zuständig ist, steht beim Schritt, sobald es wechselt.');
     const { text } = await convert(read('../docs/test/bauantrag.bpmn'));
-    expect(text).toContain('Wechsel zwischen den beteiligten Organisationen sind ebenfalls Überschriften.');
+    expect(text).toContain('Wechsel zwischen den beteiligten Organisationen stehen ebenfalls in einer eigenen Zeile.');
   });
 
   const read = (path: string) => readFileSync(new URL(path, import.meta.url));
@@ -726,6 +725,28 @@ describe('Befunde aus echten Modellen', () => {
 
 describe('Form des Dokuments', () => {
   const read = (path: string) => readFileSync(new URL(path, import.meta.url));
+
+  it.each(['../docs/test/bauantrag.bpmn', '../docs/beispiel/urlaubsantrag.bpmn', '../docs/test/mit-absichtlichen-fehlern.bpmn'])(
+    '%s: Unter „Ablauf“ gibt es keine einzige Überschrift',
+    async (path) => {
+      const { html } = await convert(read(path));
+      const start = html.indexOf('<h2>Ablauf</h2>');
+      expect(start).toBeGreaterThan(0);
+      expect(html.slice(start + 1)).not.toMatch(/<h[1-6]\b|role="heading"/);
+      expect(html.slice(0, start)).toContain('<h2>Überblick</h2>');
+    },
+  );
+
+  it('sagt bei einem Fall nach einer inneren Entscheidung, wozu er gehört', async () => {
+    const { text } = await convert(read('../docs/beispiel/urlaubsantrag.bpmn'));
+    expect(text).toContain('Falls Ja\nZurück zu Schritt 1');
+    expect(text).toContain('Falls Ja, zu Schritt 4');
+  });
+
+  it('nennt den Bezug nicht, solange nichts verschachtelt ist', async () => {
+    const { text } = await convert(read('../docs/test/bauantrag.bpmn'));
+    expect(text).not.toContain(', zu Schritt');
+  });
 
   it('zählt bei den Beteiligten nur die Namen auf, ohne ihre Aufgaben', async () => {
     const { html } = await convert(read('../docs/test/bauantrag.bpmn'));
@@ -782,7 +803,7 @@ describe('Form des Dokuments', () => {
   it('nennt nie eine Nummer 0, auch nicht bei einem Start mit mehreren Ausgängen', async () => {
     const { text, html } = await convert(model(start + task('A') + task('B') + flows('S>A', 'S>B')));
     expect(text).not.toContain('Schritt 0');
-    expect(text).toContain('### Start\nDiese Wege laufen gleichzeitig.');
+    expect(text).toContain('Start\nDiese Wege laufen gleichzeitig.');
     expectValidDocument(html);
   });
 });
@@ -812,7 +833,7 @@ describe('Reihenfolge', () => {
     const { text } = await convert(
       model('<bpmn:startEvent id="S1" name="Erster" /><bpmn:startEvent id="S2" name="Zweiter" />' + task('A') + end() + flows('S1>A', 'S2>A', 'A>E')),
     );
-    expect(text).toContain('Start: Erster. Weiter mit Schritt 1: A.\n### Weiterer Start\nStart: Zweiter.\n### Danach gemeinsam weiter\nSchritt 1: A.');
+    expect(text).toContain('Start: Erster. Weiter mit Schritt 1: A.\nWeiterer Start\nStart: Zweiter.\nDanach gemeinsam weiter\nSchritt 1: A.');
   });
 
   it('nennt den direkten Nachfolger nicht', async () => {
@@ -830,7 +851,7 @@ describe('Mehrere Ausgänge ohne Gateway', () => {
           start + task('A') + task('B') + task('C') + end() + flows('S>A', 'A>B', 'A>C', 'B>E', 'C>E'),
       ),
     );
-    expect(text).toContain('### Schritt 1: A\nZuständig: Rolle.\nDiese Wege laufen gleichzeitig.\nSchritt 2: B.\nSchritt 3: C.');
+    expect(text).toContain('Schritt 1: A\nZuständig: Rolle.\nDiese Wege laufen gleichzeitig.\nSchritt 2: B.\nSchritt 3: C.');
     expect(codes).toContain('implicit-split');
   });
 
@@ -858,7 +879,7 @@ describe('Beschriftung von Entscheidungen', () => {
       decision('<bpmn:sequenceFlow id="j" sourceRef="G" targetRef="A" /><bpmn:sequenceFlow id="n" sourceRef="G" targetRef="B" />', 'id="G"'),
     );
     expect(text.match(/Fall ohne Beschriftung/g)).toHaveLength(2);
-    expect(text).toContain('### Schritt 1: Entscheidung');
+    expect(text).toContain('Schritt 1: Entscheidung');
     expect(codes.filter((code) => code === 'unlabeled-exit')).toHaveLength(2);
     expect(findings.some((finding) => finding.code === 'missing-name' && finding.elementId === 'G')).toBe(true);
   });
@@ -901,7 +922,7 @@ describe('Gateways, die entfallen oder bleiben', () => {
 describe('Lücken im Modell', () => {
   it('führt auch einen abgetrennten Kreis auf', async () => {
     const { text, codes } = await convert(model(start + task('A') + task('K1') + task('K2') + flows('S>A', 'K1>K2', 'K2>K1')));
-    expect(text).toContain('### Schritte ohne Weg vom Start');
+    expect(text).toContain('Schritte ohne Weg vom Start');
     expect(text).toContain('K1.');
     expect(text).toContain('K2.');
     expect(codes.filter((code) => code === 'unreachable')).toHaveLength(2);
@@ -959,7 +980,7 @@ describe('Teilprozesse', () => {
           task('Z', 'Danach') + end() + flows('S>SP', 'SP>Z', 'Z>E'),
       ),
     );
-    expect(text).toContain('### Schritt 1, Teilprozess: Prüfung\nStart: Los.\nSchritt 2: Innen eins.\nSchritt 3: Innen zwei.\nEnde: Innen fertig. Dieser Weg endet hier.\nDamit ist der Teilprozess „Prüfung“ abgeschlossen.\nSchritt 4: Danach.');
+    expect(text).toContain('Schritt 1, Teilprozess: Prüfung\nStart: Los.\nSchritt 2: Innen eins.\nSchritt 3: Innen zwei.\nEnde: Innen fertig. Dieser Weg endet hier.\nDamit ist der Teilprozess „Prüfung“ abgeschlossen.\nSchritt 4: Danach.');
     expect(text).toContain('Mögliche Ergebnisse: Fertig.');
     expect(text).toContain('Dieser Prozess hat 4 Schritte');
     expect(codes).toEqual([]);
@@ -973,7 +994,7 @@ describe('Teilprozesse', () => {
           start + sub('SP', 'Außen', sub('SQ', 'Innen', task('T', 'Tief')) ) + flows('S>SP'),
       ),
     );
-    expect(text).toContain('### Schritt 1, Teilprozess: Außen\nZuständig: Rolle.\n#### Schritt 2, Teilprozess: Innen\nZuständig: Rolle.\nSchritt 3: Tief.');
+    expect(text).toContain('Schritt 1, Teilprozess: Außen\nZuständig: Rolle.\nSchritt 2, Teilprozess: Innen\nZuständig: Rolle.\nSchritt 3: Tief.');
     expectValidDocument(html);
   });
 
@@ -990,7 +1011,7 @@ describe('Teilprozesse', () => {
           '<bpmn:task id="K" name="Rückbuchen" isForCompensation="true" />',
       ),
     );
-    expect(text).toContain('### Sonderabläufe\n### Schritt 2, Teilprozess: Storno\nDieser Teilprozess läuft nicht im normalen Ablauf.');
+    expect(text).toContain('Sonderabläufe\nSchritt 2, Teilprozess: Storno\nDieser Teilprozess läuft nicht im normalen Ablauf.');
     expect(text).toContain('Schritt 4: Rückbuchen. Dieser Schritt läuft nicht im normalen Ablauf.');
     expect(codes).not.toContain('unreachable');
     expect(codes).not.toContain('dead-end');
@@ -1016,8 +1037,8 @@ describe('Teilprozesse', () => {
       <bpmn:process id="K"><bpmn:startEvent id="KS" name="Bedarf" />${sub('SP', 'Antrag stellen', task('T', 'Absenden'))}${inner('k', 'KS>SP')}</bpmn:process>
     </bpmn:definitions>`);
     expect(text.indexOf('Absenden')).toBeLessThan(text.indexOf('Eingang'));
-    expect(text).toContain('### Beginn bei Kunde');
-    expect(text).toContain('### Wechsel zu Amt');
+    expect(text).toContain('Beginn bei Kunde');
+    expect(text).toContain('Wechsel zu Amt');
     expectValidDocument(html);
   });
 
@@ -1043,8 +1064,8 @@ describe('Weitere Gateways und Ereignisse', () => {
           named('x', 'Bau', 'I', 'A') + named('y', 'Brandschutz', 'I', 'B') + flows('S>I', 'A>J', 'B>J', 'J>Z', 'Z>E'),
       ),
     );
-    expect(text).toContain('### Schritt 1, Verzweigung: Welche Prüfungen?\nMehrere dieser Wege können zutreffen.\n#### Weg: Bau\nSchritt 2: A.\n#### Weg: Brandschutz\nSchritt 3: B.');
-    expect(text).toContain('### Schritt 4: Warten, bis alle begonnenen Wege fertig sind\nWeiter erst, wenn von diesen Schritten alle begonnenen abgeschlossen sind: Schritt 2: A, Schritt 3: B.');
+    expect(text).toContain('Schritt 1, Verzweigung: Welche Prüfungen?\nMehrere dieser Wege können zutreffen.\nWeg: Bau\nSchritt 2: A.\nWeg: Brandschutz\nSchritt 3: B.');
+    expect(text).toContain('Schritt 4: Warten, bis alle begonnenen Wege fertig sind\nWeiter erst, wenn von diesen Schritten alle begonnenen abgeschlossen sind: Schritt 2: A, Schritt 3: B.');
     expect(codes).not.toContain('unsupported');
   });
 
@@ -1057,8 +1078,8 @@ describe('Weitere Gateways und Ereignisse', () => {
           end('E1', 'Beantwortet') + end('E2', 'Abgebrochen') + flows('S>G', 'G>A', 'G>B', 'A>E1', 'B>E2'),
       ),
     );
-    expect(text).toContain('### Schritt 1: Warten auf das erste von mehreren Ereignissen\nEs geht weiter, sobald das erste dieser Ereignisse eintritt.\n#### Wenn zuerst eintritt: Antwort da');
-    expect(text).toContain('#### Wenn zuerst eintritt: 14 Tage vorbei');
+    expect(text).toContain('Schritt 1: Warten auf das erste von mehreren Ereignissen\nEs geht weiter, sobald das erste dieser Ereignisse eintritt.\nWenn zuerst eintritt: Antwort da');
+    expect(text).toContain('Wenn zuerst eintritt: 14 Tage vorbei');
     expect(text).toContain('Wartet auf: Nachricht.');
     expect(text).toContain('Wartet auf: Frist.');
     expect(codes).not.toContain('unlabeled-exit');

@@ -11,5 +11,4 @@ export default defineConfig({
     // Der Polyfill wäre ein Inline-Skript, das die Sicherheitsregel der Seite verbietet.
     modulePreload: { polyfill: false },
   },
-  server: { fs: { allow: ['../..'] } },
 });

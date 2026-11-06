@@ -93,26 +93,28 @@ Der zweite Test zeigte: Zweige unter ihrer Entscheidung sind deutlich angenehmer
 
 Der dritte Test zeigte: Aufgaben bei den Beteiligten verwirren nur, und eine Listennummerierung neben „Schritt 5“ wirkt uneinheitlich und liest sich schlecht vor. Beteiligte sind seither nur Namen, jeder Arbeitsschritt heißt ausgeschrieben „Schritt N“, und Listen entfallen im Ablauf.
 
+Der vierte Test mit NVDA zeigte: Überschriften mitten im Ablauf nerven, weil der Screenreader jedes Mal die Ebene ansagt. Unterhalb von „Ablauf“ gibt es deshalb keine Überschriften mehr, Entscheidungen, Fälle und Wechsel sind fett gesetzte Zeilen. Der Preis ist, dass man dort nicht mehr über Überschriften springen kann. Das soll der Test mit Betroffenen bewerten.
+
 Alle Tests stammen von einem sehenden Nutzer. Das endgültige Urteil steht noch aus, siehe Phase 0 und 6. Das formatunabhängige Dokumentmodell lässt bei Bedarf schnelle Änderungen zu.
 
 ### Regeln für den Ablauf
 
 - **Ausgeschriebene Schritte statt Listen:** Jeder Arbeitsschritt beginnt mit „Schritt N“ und ist ein eigener Absatz. Listen erscheinen im Ablauf nur, wenn eine Beschreibung im Modell selbst eine Liste enthält. Start und Ende tragen keine Nummer, weil sie keine Arbeitsschritte sind. Ein Start, den eine Nachricht aus einem anderen Pool auslöst, zählt dagegen als Schritt, denn dort geschieht eine Übergabe.
 - **Chronologisch über alle Pools:** Nachrichtenflüsse legen fest, was zeitlich zuerst kommt. Wer eine Nachricht empfängt, steht hinter dem, der sie sendet.
-- **Schnittstellen als Überschriften:** „Beginn bei …“ und „Wechsel zu …“ markieren den Übergang zwischen Beteiligten, an der Stelle steht auch, was gesendet und empfangen wird.
-- **Zweige am Ort:** Jede Entscheidung ist eine Überschrift, ihre Fälle sind Überschriften eine Ebene tiefer, die Schritte stehen direkt darunter.
+- **Schnittstellen in eigener Zeile:** „Beginn bei …“ und „Wechsel zu …“ markieren den Übergang zwischen Beteiligten, an der Stelle steht auch, was gesendet und empfangen wird.
+- **Zweige am Ort:** Jede Entscheidung und jeder ihrer Fälle steht in einer eigenen fetten Zeile, die Schritte direkt darunter. Folgt ein Fall auf eine innere Entscheidung, nennt er seinen Bezug: „Falls Ja, zu Schritt 4“.
 - **Flach, wo es geht:** Läuft nach einer Entscheidung nichts zusammen, bleibt der größte Zweig auf der Ebene der Entscheidung. Lange Prozesse werden so nicht immer tiefer eingerückt.
 - **Links nur für echte Sprünge:** Das sind vor allem Rücksprünge. Verweise auf Nachrichten oder wartende Wege stehen als Text da.
-- **Weniger Ansagen:** Die Zuständigkeit erscheint beim Wechsel und nach Überschriften. Steht nichts anderes da, folgt der nächste Schritt.
+- **Weniger Ansagen:** Die Zuständigkeit erscheint beim Wechsel, nach fetten Zeilen und an Sprungzielen. Steht nichts anderes da, folgt der nächste Schritt.
+- **Wechsel zwischen Lanes:** Sie stehen als „Zuständig: …“ beim Schritt, nur Wechsel zwischen Pools bekommen eine eigene Zeile. Das ist eine bewusste Entscheidung.
 - **Zusammenführende XOR-Gateways entfallen,** wenn sie keinen Namen haben. Sie enthalten keine Information für die Lesenden.
 - **Parallele Zusammenführungen bleiben** als eigener Warteschritt, weil dort eine echte Bedingung gilt.
 - **Grenzereignisse** erscheinen als Sonderfall direkt beim Schritt, an dem sie hängen.
 - **Reihenfolge von Zweigen:** Die Position im Diagramm entscheidet, ohne Diagrammdaten die Reihenfolge der Datei.
 - **Linktexte tragen immer Kontext**, weil Screenreader Links auch als reine Liste anbieten.
 
-Technisch beruht der Ablauf auf dem Dominatorbaum des Gesamtgraphen aus Sequenz- und Nachrichtenflüssen: Ein Schritt wird dort eingeordnet, wo alle Wege zu ihm vorbeiführen. Was nicht in Blöcke passt, wird zum Sprung. Das hält das Dokument auch bei unstrukturierten Modellen vollständig, geprüft mit zufällig erzeugten Graphen mit einem und mit zwei Pools. HTML kennt nur sechs Überschriftenelemente. Tiefere Zweige bleiben über `aria-level` echte Überschriften, Word nutzt seine neun Ebenen.
-
-Die Prüfung mit fünf echten Modellen aus ProzessPilot mit zusammen 133 Elementen und 143 Flüssen ergab keinen falschen Übergang. Sie führte zu mehreren Verbesserungen: Zuständigkeit an Sprungzielen, Absätze und Listen aus mehrzeiligen Beschreibungen, Überschriften jenseits von H6, Ziele bei leeren Fällen, Formulierungen ohne technische Platzhalter und „Schreibt in“ bei Datenspeichern.
+Technisch beruht der Ablauf auf dem Dominatorbaum des Gesamtgraphen aus Sequenz- und Nachrichtenflüssen: Ein Schritt wird dort eingeordnet, wo alle Wege zu ihm vorbeiführen. Was nicht in Blöcke passt, wird zum Sprung. Das hält das Dokument auch bei unstrukturierten Modellen vollständig, geprüft mit zufällig erzeugten Graphen mit einem und mit zwei Pools.
+Die Prüfung mit fünf echten Modellen aus ProzessPilot mit zusammen 133 Elementen und 143 Flüssen ergab keinen falschen Übergang. Sie führte zu mehreren Verbesserungen: Zuständigkeit an Sprungzielen, Absätze und Listen aus mehrzeiligen Beschreibungen, Ziele bei leeren Fällen, Formulierungen ohne technische Platzhalter und „Schreibt in“ bei Datenspeichern.
 
 Die Grenzen:
 
@@ -129,7 +131,7 @@ Die Grenzen:
 | XOR- und parallele Gateways | Entscheidung, gleichzeitige Wege, Warten | 1 |
 | Pools und Lanes | Zuständigkeit, Liste der Beteiligten | 1 |
 | Dokumentation, Anmerkungen | Text beim Schritt | 1 |
-| Mehrere Prozesse in einem Modell | Ein gemeinsamer Ablauf mit Wechseln als Überschriften | 1 |
+| Mehrere Prozesse in einem Modell | Ein gemeinsamer Ablauf mit Wechseln in eigener Zeile | 1 |
 | Grenzereignisse | Mit Art: Frist, Fehler, Nachricht; unterbrechend oder nicht | 1 |
 | Nachrichtenflüsse, Datenobjekte | Satz beim Schritt | 1 |
 | Zwischenereignisse | „Wartet auf“ oder „Löst aus“ mit Art des Ereignisses | 2 |
@@ -268,7 +270,7 @@ Jede Phase endet mit etwas Nutzbarem.
 
 ### Phase 4: DOCX (umgesetzt)
 
-- Zweiter Renderer auf demselben Dokumentmodell, mit echten Überschriften und internen Links.
+- Zweiter Renderer auf demselben Dokumentmodell, mit echten Überschriften bis zum Ablauf und internen Links.
 - **Stand:** Der Aufbau der Datei ist automatisch geprüft. Die Prüfung in echtem Word mit NVDA steht noch aus.
 
 ### Phase 5: Auslieferung (Testversion veröffentlicht)

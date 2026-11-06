@@ -6,10 +6,8 @@ const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (char) =
 // Größen in rem: Die eingestellte Schriftgröße gilt, und der Text bricht beim Vergrößern um.
 const STYLE = `:root{color-scheme:light dark}
 body{background:Canvas;color:CanvasText;font:1.125rem/1.6 system-ui,sans-serif;max-width:46rem;margin:0 auto;padding:1rem;overflow-wrap:break-word}
-h1,h2,h3,h4,h5,h6{line-height:1.25}
-h3{margin-top:2.5rem}
-h4,h5,h6,[role=heading]{margin-top:1.75rem}
-[role=heading]{font-weight:bold}
+h1,h2{line-height:1.25}
+.abschnitt{font-weight:bold;margin-top:1.75rem}
 [id]{scroll-margin-top:1rem}
 :target{outline:.2rem solid currentColor;outline-offset:.4rem}
 a{text-decoration:underline;text-underline-offset:.15em}
@@ -27,21 +25,16 @@ function renderInline(inline: Inline): string {
 
 const renderInlines = (content: Inline[]): string => content.map(renderInline).join('');
 
-function renderHeading(level: number, text: string, anchor?: number): string {
-  const id = anchor === undefined ? '' : ` id="s${anchor}"`;
-  // HTML kennt nur sechs Überschriftenelemente. Tiefere Ebenen bleiben über ARIA echte Überschriften.
-  if (level > 6) return `<div role="heading" aria-level="${level}"${id}>${escapeHtml(text)}</div>`;
-  return `<h${level}${id}>${escapeHtml(text)}</h${level}>`;
-}
-
-function renderBlock(block: Block, headingOffset: number): string {
+function renderBlock(block: Block): string {
   switch (block.type) {
     case 'paragraph':
       return `<p>${renderInlines(block.content)}</p>`;
     case 'list':
       return renderList(block.items);
-    case 'heading':
-      return renderHeading(block.level + headingOffset, block.text, block.anchor);
+    case 'label': {
+      const id = block.anchor === undefined ? '' : ` id="s${block.anchor}"`;
+      return `<p class="abschnitt"${id}>${escapeHtml(block.text)}</p>`;
+    }
     case 'step':
       return `<p id="s${block.anchor}">${renderInlines(block.content)}</p>`;
   }
@@ -53,16 +46,16 @@ function renderList(items: string[]): string {
 
 /** Der Inhalt ohne Titel, zum Einbetten in eine Seite. Mit dem Versatz passen die Überschriften in die umgebende Gliederung. */
 export function renderFragment(document: ProcessDocument, headingOffset = 0): string {
-  const section = (text: string): string => renderHeading(2 + headingOffset, text);
-  const block = (item: Block): string => renderBlock(item, headingOffset);
-  const parts: string[] = [section(document.overviewHeading), ...document.overview.map(block)];
+  const level = 2 + headingOffset;
+  const section = (text: string): string => `<h${level}>${escapeHtml(text)}</h${level}>`;
+  const parts: string[] = [section(document.overviewHeading), ...document.overview.map(renderBlock)];
   if (document.roles.length) {
     parts.push(section(document.rolesHeading));
     if (document.rolesIntro) parts.push(`<p>${escapeHtml(document.rolesIntro)}</p>`);
     parts.push(renderList(document.roles));
   }
   if (document.messages.length) parts.push(section(document.messagesHeading), renderList(document.messages));
-  parts.push(section(document.flowHeading), ...document.flow.map(block));
+  parts.push(section(document.flowHeading), ...document.flow.map(renderBlock));
   return parts.join('\n');
 }
 

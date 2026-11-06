@@ -6,7 +6,7 @@ Dieser Test zeigt, ob man einen Prozess allein mit dem erzeugten Dokument verste
 
 ## Test 1: Einen Prozess verstehen
 
-Öffne die Testversion und wähle „Beispiel Bauantrag umwandeln“. Schau dabei möglichst nicht in die Lösungen und nimm das übliche Hilfsmittel, also Screenreader oder Vergrößerung.
+Öffne die Testversion und wähle die Datei [bauantrag.bpmn](bauantrag.bpmn) aus. Schau dabei möglichst nicht in die Lösungen und nimm das übliche Hilfsmittel, also Screenreader oder Vergrößerung.
 
 Versuche, diese Fragen nur mit dem Dokument zu beantworten:
 
@@ -18,7 +18,7 @@ Versuche, diese Fragen nur mit dem Dokument zu beantworten:
 6. Welche Stelle außerhalb des Bauamts ist beteiligt, und wofür?
 7. Wie erfährt die antragstellende Person vom Ergebnis?
 
-Das Modell ist ein erfundenes Beispiel, seine Quelle ist [bauantrag.bpmn](bauantrag.bpmn). Einen kürzeren Prozess zeigt [urlaubsantrag.html](../beispiel/urlaubsantrag.html).
+Das Modell ist ein erfundenes Beispiel. Das fertige Dokument liegt auch als [bauantrag.html](bauantrag.html) bereit. Einen kürzeren Prozess zeigt [urlaubsantrag.html](../beispiel/urlaubsantrag.html).
 
 <details>
 <summary>Lösungen</summary>
@@ -39,9 +39,7 @@ NVDA gibt es kostenlos unter [nvaccess.org](https://www.nvaccess.org/). Diese Ta
 
 | Taste | Wirkung |
 | --- | --- |
-| `H` | Nächste Überschrift |
-| `3` | Nächste Entscheidung oder nächster Wechsel zwischen Beteiligten |
-| `4` | Nächster Fall einer Entscheidung |
+| `H` | Nächste Überschrift, also Überblick, Beteiligte oder Ablauf |
 | `P` oder `Pfeil runter` | Nächster Schritt |
 | `K` | Nächster Link |
 | `NVDA` + `F7` | Liste aller Überschriften und Links |
@@ -55,7 +53,7 @@ Prüfe dabei:
 - Sind Wechsel und Schnittstellen zwischen den Beteiligten klar?
 - Findet man nach einem Sprung zurück?
 - Stören oder helfen die Ansagen zu Links und „Zuständig“?
-- Findet man ohne eigene Überschrift für jeden Schritt schnell genug von Schritt zu Schritt?
+- Unter „Ablauf“ gibt es bewusst keine Überschriften. Findet man trotzdem schnell genug von Schritt zu Schritt und zur nächsten Entscheidung?
 - Spricht der Screenreader Schrittnummern und Namen richtig aus?
 
 ## Test 3: Mit Vergrößerung und hohem Kontrast
@@ -92,7 +90,7 @@ Im Dokument darf keines der Elemente fehlen, auch nicht der Inhalt des Teilproze
 
 ## Test 6: Das Word-Dokument
 
-Lade das Dokument als Word-Datei herunter und öffne es. Springe im Navigationsbereich oder mit dem Screenreader über die Überschriften und folge dem Link „Schritt 3“. Dieser Test wurde bisher nur automatisch am Aufbau der Datei gemacht, nicht in Word mit Screenreader.
+Lade das Dokument als Word-Datei herunter und öffne es. Prüfe die Überschriften bis zum Ablauf im Navigationsbereich oder mit dem Screenreader und folge dem Link „Schritt 3“. Dieser Test wurde bisher nur automatisch am Aufbau der Datei gemacht, nicht in Word mit Screenreader.
 
 ## Was noch nicht geht
 
@@ -101,7 +99,6 @@ Lade das Dokument als Word-Datei herunter und öffne es. Springe im Navigationsb
 - Herstellerfelder, etwa die Arbeitshilfen aus ProzessPilot, erscheinen nicht im Dokument, weil nur der BPMN-Standard ausgewertet wird.
 - Ein PDF gibt es nur über „Als PDF speichern“ aus Browser oder Word. Ob es dabei barrierefrei bleibt, ist nicht geprüft.
 - Die zeitliche Reihenfolge ergibt sich aus Sequenz- und Nachrichtenflüssen. Pools ohne Nachrichtenfluss zu einzelnen Schritten lassen sich nicht einordnen, das Dokument sagt das dann ausdrücklich. Laufen Wege gleichzeitig, müssen sie im Text trotzdem nacheinander stehen.
-- Wechsel innerhalb eines Pools, also zwischen Lanes, erscheinen als „Zuständig: …“ beim Schritt und nicht als Überschrift.
 - Nach einer Entscheidung läuft der Zweig mit den meisten Schritten ohne Einrückung weiter. Das muss nicht der fachliche Normalfall sein.
 - Unsauber modellierte Prozesse lassen sich nicht immer verschachteln, dort bleiben einzelne Sprünge.
 

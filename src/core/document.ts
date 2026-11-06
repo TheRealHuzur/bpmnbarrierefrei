@@ -9,7 +9,8 @@ export type Inline = string | StepRef | { strong: string };
 export type Block =
   | { type: 'paragraph'; content: Inline[] }
   | { type: 'list'; items: string[] }
-  | { type: 'heading'; level: number; text: string; anchor?: number }
+  /** Fett gesetzte Zeile im Ablauf, etwa eine Entscheidung oder ein Fall. Bewusst keine Überschrift. */
+  | { type: 'label'; text: string; anchor?: number }
   | { type: 'step'; anchor: number; content: Inline[] };
 
 export interface ProcessDocument {

@@ -122,6 +122,7 @@ export const de = {
     back: 'Zurück zu ',
     backAfterStep: 'Danach zurück zu ',
     caseLabeled: (label: string) => `Falls ${label}`,
+    caseOf: (title: string, number: number) => `${title}, zu Schritt ${number}`,
     wayLabeled: (label: string) => `Weg: ${label}`,
     way: (number: number) => `Weg ${number}`,
     unlabeledCase: 'Fall ohne Beschriftung',
@@ -154,7 +155,7 @@ export const de = {
     outcomes: 'Mögliche Ergebnisse: ',
     noOutcomes: 'Das Modell benennt keine Ergebnisse.',
     readingHelp: (showPools: boolean) =>
-      `So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte sind durchgehend nummeriert. Entscheidungen sind Überschriften, ihre Fälle sind Überschriften eine Ebene tiefer.${showPools ? ' Wechsel zwischen den beteiligten Organisationen sind ebenfalls Überschriften.' : ''} Wer zuständig ist, steht beim Schritt, sobald es wechselt. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion wieder an die vorige Stelle.`,
+      `So lesen Sie das Dokument: Der Ablauf führt in zeitlicher Reihenfolge durch den Prozess, die Schritte sind durchgehend nummeriert. Bei einer Entscheidung steht jeder Fall in einer eigenen Zeile, darunter folgen seine Schritte.${showPools ? ' Wechsel zwischen den beteiligten Organisationen stehen ebenfalls in einer eigenen Zeile.' : ''} Wer zuständig ist, steht beim Schritt, sobald es wechselt. Links gibt es nur dort, wo der Ablauf an eine andere Stelle springt. Nach einem Sprung führt die Zurück-Funktion wieder an die vorige Stelle.`,
     rolesOf: (pool: string) => `Alle gehören zu: ${pool}.`,
     roleExternal: (role: string) => `${role}, externe Stelle`,
     messageBetween: (message: string, from: string, to: string) =>

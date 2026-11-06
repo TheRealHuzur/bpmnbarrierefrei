@@ -16,15 +16,6 @@ import { de } from './texts.de.ts';
 const FONT = 'Arial';
 const BULLETS = 'aufzaehlung';
 
-const HEADINGS = [
-  HeadingLevel.HEADING_1,
-  HeadingLevel.HEADING_2,
-  HeadingLevel.HEADING_3,
-  HeadingLevel.HEADING_4,
-  HeadingLevel.HEADING_5,
-  HeadingLevel.HEADING_6,
-];
-
 const headingStyle = (id: string, level: number, size: number) => ({
   id,
   name: `Heading ${level}`,
@@ -45,15 +36,17 @@ function renderInline(inline: Inline): ParagraphChild {
   });
 }
 
-function heading(level: number, text: string, anchor?: number): Paragraph {
-  const run = new TextRun(text);
-  const children = anchor === undefined ? [run] : [new Bookmark({ id: `s${anchor}`, children: [run] })];
-  const style = HEADINGS[level - 1];
-  if (style) return new Paragraph({ heading: style, children });
-  // Word kennt neun Überschriftenebenen. Nur was noch tiefer liegt, wird ein hervorgehobener Absatz.
-  if (level <= 9) return new Paragraph({ style: `Heading${level}`, children });
-  const strong = new TextRun({ text, bold: true });
-  return new Paragraph({ children: anchor === undefined ? [strong] : [new Bookmark({ id: `s${anchor}`, children: [strong] })] });
+const heading = (level: typeof HeadingLevel.HEADING_1 | typeof HeadingLevel.HEADING_2, text: string): Paragraph =>
+  new Paragraph({ heading: level, children: [new TextRun(text)] });
+
+/** Fette Zeile im Ablauf, bewusst keine Überschrift. Sie bleibt beim Seitenumbruch bei ihren Schritten. */
+function label(text: string, anchor?: number): Paragraph {
+  const run = new TextRun({ text, bold: true });
+  return new Paragraph({
+    keepNext: true,
+    spacing: { before: 280 },
+    children: anchor === undefined ? [run] : [new Bookmark({ id: `s${anchor}`, children: [run] })],
+  });
 }
 
 const bulletList = (items: string[]): Paragraph[] =>
@@ -65,8 +58,8 @@ function renderBlock(block: Block): Paragraph[] {
       return [new Paragraph({ children: block.content.map(renderInline) })];
     case 'list':
       return bulletList(block.items);
-    case 'heading':
-      return [heading(block.level, block.text, block.anchor)];
+    case 'label':
+      return [label(block.text, block.anchor)];
     case 'step': {
       const [first, ...rest] = block.content.map(renderInline);
       return [
@@ -78,20 +71,21 @@ function renderBlock(block: Block): Paragraph[] {
   }
 }
 
-/** Erzeugt eine Word-Datei mit echten Überschriften und Sprungmarken, im Browser wie in Node. */
+/** Erzeugt eine Word-Datei mit echten Überschriften bis zum Ablauf und Sprungmarken, im Browser wie in Node. */
 export async function renderDocx(document: ProcessDocument): Promise<Uint8Array> {
+  const section = (text: string): Paragraph => heading(HeadingLevel.HEADING_2, text);
   const body: Paragraph[] = [
-    heading(1, document.title),
-    heading(2, document.overviewHeading),
+    heading(HeadingLevel.HEADING_1, document.title),
+    section(document.overviewHeading),
     ...document.overview.flatMap(renderBlock),
   ];
   if (document.roles.length) {
-    body.push(heading(2, document.rolesHeading));
+    body.push(section(document.rolesHeading));
     if (document.rolesIntro) body.push(new Paragraph(document.rolesIntro));
     body.push(...bulletList(document.roles));
   }
-  if (document.messages.length) body.push(heading(2, document.messagesHeading), ...bulletList(document.messages));
-  body.push(heading(2, document.flowHeading), ...document.flow.flatMap(renderBlock));
+  if (document.messages.length) body.push(section(document.messagesHeading), ...bulletList(document.messages));
+  body.push(section(document.flowHeading), ...document.flow.flatMap(renderBlock));
 
   const file = new Document({
     title: document.documentTitle,
@@ -107,13 +101,6 @@ export async function renderDocx(document: ProcessDocument): Promise<Uint8Array>
       paragraphStyles: [
         headingStyle('Heading1', 1, 40),
         headingStyle('Heading2', 2, 32),
-        headingStyle('Heading3', 3, 28),
-        headingStyle('Heading4', 4, 26),
-        headingStyle('Heading5', 5, 24),
-        headingStyle('Heading6', 6, 24),
-        headingStyle('Heading7', 7, 24),
-        headingStyle('Heading8', 8, 24),
-        headingStyle('Heading9', 9, 24),
       ],
       characterStyles: [{ id: 'Hyperlink', name: 'Hyperlink', run: { underline: {} } }],
     },
