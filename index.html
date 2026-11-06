@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Die Seite darf nichts senden: connect-src und form-action schließen das Hochladen technisch aus. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="description" content="Macht aus einem BPMN-Modell ein Dokument für Menschen mit Sehbehinderung. Die Datei bleibt auf dem eigenen Rechner." />
+    <title>BPMN barrierefrei</title>
+    <link rel="icon" href="data:," />
+    <script type="module" crossorigin src="./assets/index-CjfIzR2T.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CEwSqrFE.css">
+  </head>
+  <body>
+    <main>
+      <h1>BPMN barrierefrei</h1>
+      <p>
+        Diese Seite macht aus einem BPMN-Modell ein Dokument, das mit Screenreader, Vergrößerung oder hohem Kontrast gut nutzbar ist.
+        Ihre Datei bleibt auf Ihrem Rechner, sie wird nicht hochgeladen.
+      </p>
+
+      <h2>Modell auswählen</h2>
+      <p>
+        <label for="file">BPMN-Datei</label><br />
+        <input id="file" type="file" accept=".bpmn,.xml,application/xml,text/xml" aria-describedby="file-hint" />
+      </p>
+      <p id="file-hint">Exportieren Sie das Modell aus Ihrem Werkzeug als BPMN 2.0 XML. Die Umwandlung beginnt direkt nach der Auswahl.</p>
+      <p id="status" role="status"></p>
+      <p id="error" role="alert"></p>
+
+      <section id="result" aria-labelledby="result-heading" hidden>
+        <h2 id="result-heading" tabindex="-1"></h2>
+        <p id="summary"></p>
+        <h3>Dokument herunterladen</h3>
+        <ul>
+          <li><a id="download-docx" hidden>Als Word-Dokument herunterladen</a></li>
+          <li><a id="download-html">Als HTML-Datei herunterladen</a></li>
+        </ul>
+        <p>Ein PDF erhalten Sie, wenn Sie das Word-Dokument oder die HTML-Datei öffnen und als PDF speichern.</p>
+
+        <h3>Prüfbericht</h3>
+        <div id="report"></div>
+      </section>
+
+      <section id="preview-section" aria-labelledby="preview-heading" hidden>
+        <h2 id="preview-heading"></h2>
+        <div id="preview"></div>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Testversion. Keine Cookies, keine Analyse, keine Übertragung Ihrer Datei.
+        <a href="https://github.com/TheRealHuzur/bpmnbarrierefrei">Quellcode auf GitHub</a>
+      </p>
+    </footer>
+  </body>
+</html>
